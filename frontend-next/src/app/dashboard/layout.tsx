@@ -19,7 +19,14 @@ export default function DashboardLayout({
     const router = useRouter();
     const pathname = usePathname();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-    const [user, setUser] = useState<{ name: string; email: string; enrollment: string } | null>(null);
+    const [user, setUser] = useState<{
+        name: string;
+        enrollment: string;
+        branch: string;
+        year: string;
+        semester: string;
+        section: string;
+    } | null>(null);
 
     useEffect(() => {
         // Check auth
@@ -29,9 +36,12 @@ export default function DashboardLayout({
                 router.push('/');
             } else {
                 setUser({
-                    name: localStorage.getItem('fullName') || 'Student',
-                    email: localStorage.getItem('email') || '',
+                    name: localStorage.getItem('fullName') || 'Guest Student',
                     enrollment: localStorage.getItem('enrollment') || '',
+                    branch: localStorage.getItem('branch') || '',
+                    year: localStorage.getItem('year') || '',
+                    semester: localStorage.getItem('semester') || '',
+                    section: localStorage.getItem('section') || '',
                 });
             }
         }
@@ -132,12 +142,14 @@ export default function DashboardLayout({
                                             </div>
                                             <div className="flex-1">
                                                 <p className="text-sm font-bold text-white">{user?.name}</p>
-                                                <p className="text-xs text-blue-100 mt-0.5">{user?.email}</p>
+                                                <p className="text-xs text-blue-100 mt-0.5">
+                                                    {user?.branch} • Year {user?.year} • Sem {user?.semester} • Sec {user?.section}
+                                                </p>
                                             </div>
                                         </div>
                                         <div className="inline-block px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm">
                                             <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
-                                                Enrollment: {user?.enrollment}
+                                                ID: {user?.enrollment}
                                             </p>
                                         </div>
                                     </div>

@@ -280,7 +280,7 @@ export default function DashboardPage() {
                                             <div className="flex items-center gap-4 min-w-max px-2">
                                                 {QUESTION_LABELS.map((q, qIdx) => (
                                                     <div key={q.key} className="flex flex-col items-center gap-3 p-5 rounded-[24px] bg-slate-50/20 border border-gray-100/50 hover:bg-white hover:border-indigo-100 transition-all group/q w-[130px] flex-shrink-0">
-                                                        <span className="text-[10px] font-black text-blue-600/60 uppercase">Q{qIdx + 1}</span>
+                                                        <span className="text-[15px] font-black text-blue-600/60 uppercase">Q{qIdx + 1}</span>
                                                         <div className="flex items-center gap-0.5">
                                                             {[1, 2, 3, 4, 5].map((star) => {
                                                                 const currentVal = feedbacks[teacher.allocation_id]?.ratings[q.key] || 0;
@@ -305,7 +305,7 @@ export default function DashboardPage() {
                                                                 );
                                                             })}
                                                         </div>
-                                                        <span className="text-[9px] font-black text-gray-400 text-center leading-tight uppercase tracking-tighter truncate w-full">
+                                                        <span className="text-[10px] font-black text-gray-700 text-center leading-tight tracking-tighter truncate ">
                                                             {q.label}
                                                         </span>
                                                     </div>

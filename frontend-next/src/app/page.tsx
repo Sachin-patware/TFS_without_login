@@ -8,7 +8,13 @@ import { User, Lock, Calendar, ShieldCheck, ArrowRight, Laptop, GraduationCap } 
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { DatePicker } from '@/components/ui/DatePicker';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select";
 import { Toast, ToastType } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 
@@ -16,8 +22,44 @@ export default function LoginPage() {
   const router = useRouter();
   const [role, setRole] = useState<'student' | 'admin'>('student');
   const [loading, setLoading] = useState(false);
+
+  // Student Fields
+  const [branch, setBranch] = useState('');
+  const [year, setYear] = useState('');
+  const [semester, setSemester] = useState('');
+  const [section, setSection] = useState('');
+
+  // Year to Semester mapping
+  const YEAR_SEMESTER_MAP: Record<string, number[]> = {
+    '1': [1, 2],
+    '2': [3, 4],
+    '3': [5, 6],
+    '4': [7, 8]
+  };
+
+  const handleYearChange = (val: string) => {
+    setYear(val);
+    // If current semester is not in the new year's semesters, reset it
+    const validSems = YEAR_SEMESTER_MAP[val] || [];
+    if (!validSems.includes(parseInt(semester))) {
+      setSemester('');
+    }
+  };
+
+  const handleSemesterChange = (val: string) => {
+    setSemester(val);
+    const sem = parseInt(val);
+    // Automatically set logical year
+    if ([1, 2].includes(sem)) setYear('1');
+    else if ([3, 4].includes(sem)) setYear('2');
+    else if ([5, 6].includes(sem)) setYear('3');
+    else if ([7, 8].includes(sem)) setYear('4');
+  };
+
+  // Admin Fields
   const [email, setEmail] = useState('');
   const [dob, setDob] = useState('');
+
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -70,15 +112,20 @@ export default function LoginPage() {
     }
 
     // Student login
-    if (!email || !dob) {
-      showToast("Please fill in all fields.", "error");
+    if (!branch || !year || !semester || !section) {
+      showToast("Please select all class details.", "error");
       return;
     }
     setLoading(true);
     try {
       const res = await apiFetch('/login/', {
         method: "POST",
-        body: JSON.stringify({ email, dob }),
+        body: JSON.stringify({
+          branch,
+          year: parseInt(year),
+          semester: parseInt(semester),
+          section: parseInt(section)
+        }),
       });
       const data = await res.json();
       if (data.status === "ok") {
@@ -86,13 +133,16 @@ export default function LoginPage() {
           localStorage.setItem("access_token", data.access);
           localStorage.setItem("enrollment", data.EnrollmentNo);
           localStorage.setItem("fullName", data.FullName);
-          localStorage.setItem("email", data.Email);
+          localStorage.setItem("branch", data.branch);
+          localStorage.setItem("year", data.year.toString());
+          localStorage.setItem("semester", data.semester.toString());
+          localStorage.setItem("section", data.section.toString());
         }
-        showToast("Login Successful! Redirecting...", "success");
+        showToast("Welcome! Redirecting to dashboard...", "success");
         setTimeout(() => router.push('/dashboard'), 1500);
       } else {
         const firstError = data.errors ? Object.values(data.errors).flat()[0] as string : data.error;
-        showToast(firstError || "Invalid credentials.", "error");
+        showToast(firstError || "Could not verify class details.", "error");
       }
     } catch (error) {
       showToast("Server connection failed. Is backend running?", "error");
@@ -213,27 +263,64 @@ export default function LoginPage() {
               <div className="space-y-5">
                 {role === 'student' ? (
                   <>
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-300 ml-1">College Email</label>
-                      <Input
-                        type="email"
-                        placeholder="yourname@acropolis.in"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        icon={<User size={18} />}
-                        className="focus:border-blue-500/50"
-                        required
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-300 ml-1">Branch</label>
+                        <Select value={branch} onValueChange={setBranch}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
+                            <SelectValue placeholder="Select Branch" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0f172a] border-white/10 text-slate-200">
+                            <SelectItem value="CS">CS (Computer Science)</SelectItem>
+                            <SelectItem value="IT">IT (Information Technology)</SelectItem>
+                            <SelectItem value="DS">DS (Data Science)</SelectItem>
+                            <SelectItem value="AIML">AIML (AI & ML)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-300 ml-1">Year</label>
+                        <Select value={year} onValueChange={handleYearChange}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
+                            <SelectValue placeholder="Select Year" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0f172a] border-white/10 text-slate-200">
+                            <SelectItem value="1">1st Year</SelectItem>
+                            <SelectItem value="2">2nd Year</SelectItem>
+                            <SelectItem value="3">3rd Year</SelectItem>
+                            <SelectItem value="4">4th Year</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-300 ml-1">Date of Birth</label>
-                      <DatePicker
-                        value={dob}
-                        onChange={(date) => setDob(date)}
-                        placeholder="Select your date of birth"
-                        icon={<Calendar size={18} />}
-                        className="focus:border-blue-500/50"
-                      />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-300 ml-1">Semester</label>
+                        <Select value={semester} onValueChange={handleSemesterChange}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
+                            <SelectValue placeholder="Select Semester" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0f172a] border-white/10 text-slate-200">
+                            {(year ? YEAR_SEMESTER_MAP[year] : [1, 2, 3, 4, 5, 6, 7, 8]).map(s => (
+                              <SelectItem key={s} value={s.toString()}>{s}th Semester</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-300 ml-1">Section</label>
+                        <Select value={section} onValueChange={setSection}>
+                          <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
+                            <SelectValue placeholder="Select Section" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0f172a] border-white/10 text-slate-200">
+                            {[1, 2, 3, 4, 5].map(s => (
+                              <SelectItem key={s} value={s.toString()}>Section {s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </>
                 ) : (

@@ -6,7 +6,12 @@ from django.http import JsonResponse
 
 def generate_jwt(payload, user_type='student'):
     """Generate a JWT for a specific user type"""
-    expiry = datetime.utcnow() + timedelta(days=1)
+    if user_type == 'student':
+        expiry = datetime.utcnow() + timedelta(minutes=15)
+    else:
+        # Admin or other types
+        expiry = datetime.utcnow() + timedelta(days=1)
+        
     payload.update({
         'exp': expiry,
         'user_type': user_type,

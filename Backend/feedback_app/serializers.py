@@ -25,7 +25,11 @@ class LoginSerializer(forms.Form):
     )
 
     def clean_branch(self):
-        return self.cleaned_data['branch'].upper().strip()
+        branch = self.cleaned_data.get('branch', '').upper().strip()
+        valid_branches = ['CS', 'IT', 'DS', 'AIML']
+        if branch not in valid_branches:
+            raise forms.ValidationError(f"Invalid branch. Must be one of: {', '.join(valid_branches)}")
+        return branch
 class FeedbackSerializer(forms.Form):
 
     subject_code = forms.CharField(

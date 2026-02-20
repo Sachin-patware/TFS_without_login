@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Lock, Calendar, ShieldCheck, ArrowRight, Laptop, GraduationCap } from 'lucide-react';
+import { User, Lock, Calendar, ShieldCheck, ArrowRight, Laptop, GraduationCap, Loader2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/Select";
 import { Toast, ToastType } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
+import { Suspense } from 'react';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const [role, setRole] = useState<'student' | 'admin'>('student');
   const [loading, setLoading] = useState(false);
@@ -61,9 +62,31 @@ export default function LoginPage() {
   const [dob, setDob] = useState('');
 
   const [mounted, setMounted] = useState(false);
+  const searchParams = useSearchParams();
+  const tokenFromUrl = searchParams.get('token') || '';
+
+  // Persistent Device Fingerprinting
+  const [fingerprint, setFingerprint] = useState('');
 
   useEffect(() => {
     setMounted(true);
+
+    // Persistent Student ID (Fingerprint) with 15-minute expiry
+    if (typeof window !== 'undefined') {
+      let stuId = localStorage.getItem('persistent_stu_id');
+      let timestamp = localStorage.getItem('persistent_stu_timestamp');
+      const now = Date.now();
+      const expiryTime = 15 * 60 * 1000; // 15 minutes
+
+      if (!stuId || !timestamp || (now - parseInt(timestamp) > expiryTime)) {
+        // Generate new ID if missing or expired (older than 15 mins)
+        stuId = 'STU-' + Math.random().toString(36).substring(2, 11).toUpperCase() +
+          Date.now().toString(36).toUpperCase();
+        localStorage.setItem('persistent_stu_id', stuId);
+        localStorage.setItem('persistent_stu_timestamp', now.toString());
+      }
+      setFingerprint(stuId);
+    }
   }, []);
 
   const [toast, setToast] = useState<{ msg: string; type: ToastType; visible: boolean }>({
@@ -124,7 +147,9 @@ export default function LoginPage() {
           branch,
           year: parseInt(year),
           semester: parseInt(semester),
-          section: parseInt(section)
+          section: parseInt(section),
+          token: tokenFromUrl,
+          fingerprint: fingerprint
         }),
       });
       const data = await res.json();
@@ -220,7 +245,11 @@ export default function LoginPage() {
 
           <div className="mb-10 text-center">
             <h2 className="text-3xl font-bold text-white mb-2">Welcome Login</h2>
-            <p className="text-slate-400">Sign in to share your valuable feedback</p>
+            {role === 'student' && !tokenFromUrl ? (
+              <p className="text-red-400 font-medium">Access token required. Please use the link provided by admin.</p>
+            ) : (
+              <p className="text-slate-400">Sign in to share your valuable feedback</p>
+            )}
           </div>
 
           <div className="flex mb-8 p-1 bg-white/5 rounded-2xl border border-white/10">
@@ -374,5 +403,17 @@ export default function LoginPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

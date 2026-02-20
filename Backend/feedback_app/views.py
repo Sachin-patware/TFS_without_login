@@ -15,6 +15,9 @@ from feedback_app.models.academic_allocation import Academic_Allocation
 from functools import wraps
 from feedback_app.auth import generate_jwt, jwt_required, jwt_admin_required
 
+# In-memory store for student access token (resets on server restart)
+CURRENT_ACCESS_TOKEN = "COLLEGE2026"
+
 # LEGACY DECORATORS REMOVED (Replaced by feedback_app.auth)
 
 # login api 
@@ -57,6 +60,12 @@ def login(request):
     year_raw = payload.get('year') or payload.get('Year')
     semester_raw = payload.get('semester') or payload.get('Semester')
     section_raw = payload.get('section') or payload.get('Section')
+    token_provided = payload.get('token')
+    fingerprint = payload.get('fingerprint')
+
+    # Security Check: Verify Access Token
+    if token_provided != CURRENT_ACCESS_TOKEN:
+        return JsonResponse({'status': 'error', 'error': 'Invalid access token'}, status=403)
 
     # validate inputs via serializer (Django Form)
     serializer = LoginSerializer(data={
@@ -74,24 +83,24 @@ def login(request):
     semester = serializer.cleaned_data.get('semester')
     section = serializer.cleaned_data.get('section')
 
-    # Generate a random student ID
-    random_id = 'STU-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    # Use fingerprint as ID if provided, otherwise fallback to random (random is less secure for session persistence)
+    student_id = fingerprint if fingerprint else 'STU-' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
     # Generate JWT with class info
     token = generate_jwt({
-        'enrollment': random_id,
+        'enrollment': student_id,
         'branch': branch,
         'year': year,
         'semester': semester,
         'section': section,
-        'name': f"Guest Student ({random_id})"
+        'name': f"Guest Student ({student_id[:8]})"
     }, user_type='student')
 
     return JsonResponse({
         'status': 'ok',
         'message': 'login successful',
-        'EnrollmentNo': random_id,
-        'FullName': f"Guest Student ({random_id})",
+        'EnrollmentNo': student_id,
+        'FullName': f"Guest Student ({student_id[:8]})",
         'branch': branch,
         'year': year,
         'semester': semester,
@@ -818,3 +827,32 @@ def admin_delete_row(request, table_name, row_id):
             "status": "error",
             "error": str(e)
         }, status=500)
+@csrf_exempt
+@jwt_admin_required
+def admin_get_token(request):
+    """Fetch the current global student access token"""
+    return JsonResponse({
+        'status': 'ok',
+        'token': CURRENT_ACCESS_TOKEN
+    })
+
+@csrf_exempt
+@require_POST
+@jwt_admin_required
+def admin_update_token(request):
+    """Update the global student access token"""
+    global CURRENT_ACCESS_TOKEN
+    try:
+        payload = json.loads(request.body)
+        new_token = payload.get('token')
+        if not new_token:
+            return JsonResponse({'status': 'error', 'error': 'token is required'}, status=400)
+        
+        CURRENT_ACCESS_TOKEN = new_token
+        return JsonResponse({
+            'status': 'ok',
+            'message': 'access token updated successfully',
+            'token': CURRENT_ACCESS_TOKEN
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'error': str(e)}, status=500)

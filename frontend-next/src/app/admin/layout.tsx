@@ -52,7 +52,12 @@ export default function AdminLayout({
     }, [isUserMenuOpen]);
 
     const handleLogout = () => {
-        localStorage.clear();
+        // Selective removal to preserve persistent_stu_id
+        const itemsToRemove = [
+            'access_token', 'enrollment', 'fullName', 'branch',
+            'year', 'semester', 'section', 'admin_username', 'is_admin'
+        ];
+        itemsToRemove.forEach(item => localStorage.removeItem(item));
         router.push('/');
     };
 

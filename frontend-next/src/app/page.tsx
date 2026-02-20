@@ -1,0 +1,291 @@
+"use client"
+
+import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Lock, Calendar, ShieldCheck, ArrowRight, Laptop, GraduationCap } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { DatePicker } from '@/components/ui/DatePicker';
+import { Toast, ToastType } from '@/components/ui/Toast';
+import { cn } from '@/lib/utils';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [role, setRole] = useState<'student' | 'admin'>('student');
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [dob, setDob] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const [toast, setToast] = useState<{ msg: string; type: ToastType; visible: boolean }>({
+    msg: '',
+    type: 'info',
+    visible: false,
+  });
+
+  const showToast = (msg: string, type: ToastType) => {
+    setToast({ msg, type, visible: true });
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Admin login
+    if (role === 'admin') {
+      if (!email || !dob) {
+        showToast("Please fill in all fields.", "error");
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await apiFetch('/dashboard-admin/login/', {
+          method: "POST",
+          body: JSON.stringify({ username: email, password: dob }),
+        });
+        const data = await res.json();
+        if (data.status === "ok") {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem("access_token", data.access);
+            localStorage.setItem("admin_username", data.username);
+            localStorage.setItem("is_admin", "true");
+          }
+          showToast("Admin Login Successful! Redirecting...", "success");
+          setTimeout(() => router.push('/admin'), 1500);
+        } else {
+          showToast(data.error || "Invalid credentials.", "error");
+        }
+      } catch (error) {
+        showToast("Server connection failed. Is backend running?", "error");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Student login
+    if (!email || !dob) {
+      showToast("Please fill in all fields.", "error");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await apiFetch('/login/', {
+        method: "POST",
+        body: JSON.stringify({ email, dob }),
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem("access_token", data.access);
+          localStorage.setItem("enrollment", data.EnrollmentNo);
+          localStorage.setItem("fullName", data.FullName);
+          localStorage.setItem("email", data.Email);
+        }
+        showToast("Login Successful! Redirecting...", "success");
+        setTimeout(() => router.push('/dashboard'), 1500);
+      } else {
+        const firstError = data.errors ? Object.values(data.errors).flat()[0] as string : data.error;
+        showToast(firstError || "Invalid credentials.", "error");
+      }
+    } catch (error) {
+      showToast("Server connection failed. Is backend running?", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!mounted) return null;
+
+  return (
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#020617] text-slate-50 overflow-hidden font-sans">
+      <Toast
+        message={toast.msg}
+        type={toast.type}
+        isVisible={toast.visible}
+        onClose={() => setToast(prev => ({ ...prev, visible: false }))}
+      />
+
+      {/* Decorative Background Elements */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse delay-700" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03]" />
+      </div>
+
+      {/* Left Section - Hero/Branding */}
+      <motion.div
+        initial={{ opacity: 0, x: -50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="relative lg:w-1/2 flex flex-col justify-center px-8 lg:px-24 pb-28 pt-24 z-10"
+      >
+        <div className="mb-12 flex items-center gap-4">
+          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg p-2">
+            <Image src="/images/IT dept.png" alt="Logo" width={40} height={40} className="object-contain" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold tracking-tight text-white">IT Department</h3>
+            <p className="text-sm text-slate-400 font-medium">ACROPOLIS INSTITUTE OF TECHNOLOGY & RESEARCH</p>
+          </div>
+        </div>
+
+        <h1 className="text-5xl lg:text-7xl font-extrabold mb-8 leading-tight">
+          Shape the <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Future</span> of Education.
+        </h1>
+        <p className="text-xl text-slate-400 mb-12 max-w-lg leading-relaxed">
+          The Teacher Feedback System empowers students to provide constructive insights, helping our institution achieve excellence in teaching and learning.
+        </p>
+
+        <div className="grid grid-cols-2 gap-6 max-w-md">
+          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+            <ShieldCheck className="text-blue-400 mb-3" size={24} />
+            <h4 className="font-bold text-white mb-1">Secure</h4>
+            <p className="text-xs text-slate-400">Your feedback is anonymous and encrypted.</p>
+          </div>
+          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+            <Laptop className="text-indigo-400 mb-3" size={24} />
+            <h4 className="font-bold text-white mb-1">Easy Access</h4>
+            <p className="text-xs text-slate-400">Provide feedback anytime, anywhere.</p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Right Section - Login Card */}
+      <div className="lg:w-1/2 flex items-start justify-center p-12 lg:pb-28 pt-24  z-10">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="w-full max-w-md bg-white/5 border border-white/10 backdrop-blur-2xl rounded-3xl p-10 lg:p-10 shadow-2xl relative"
+        >
+          {/* Subtle reflection effect */}
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+          <div className="mb-10 text-center">
+            <h2 className="text-3xl font-bold text-white mb-2">Welcome Login</h2>
+            <p className="text-slate-400">Sign in to share your valuable feedback</p>
+          </div>
+
+          <div className="flex mb-8 p-1 bg-white/5 rounded-2xl border border-white/10">
+            <button
+              onClick={() => setRole('student')}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold rounded-xl transition-all duration-300",
+                role === 'student'
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                  : "text-slate-400 hover:text-slate-200"
+              )}
+            >
+              <GraduationCap size={20} />
+              Student
+            </button>
+            <button
+              onClick={() => setRole('admin')}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold rounded-xl transition-all duration-300",
+                role === 'admin'
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                  : "text-slate-400 hover:text-slate-200"
+              )}
+            >
+              <ShieldCheck size={20} />
+              Admin
+            </button>
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.form
+              key={role}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              onSubmit={handleLogin}
+              className="space-y-6"
+            >
+              <div className="space-y-5">
+                {role === 'student' ? (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-300 ml-1">College Email</label>
+                      <Input
+                        type="email"
+                        placeholder="yourname@acropolis.in"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        icon={<User size={18} />}
+                        className="focus:border-blue-500/50"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-300 ml-1">Date of Birth</label>
+                      <DatePicker
+                        value={dob}
+                        onChange={(date) => setDob(date)}
+                        placeholder="Select your date of birth"
+                        icon={<Calendar size={18} />}
+                        className="focus:border-blue-500/50"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-300 ml-1">Admin Username</label>
+                      <Input
+                        type="text"
+                        placeholder="Enter Admin Username"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        icon={<ShieldCheck size={18} />}
+                        className="focus:border-blue-500/50"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-300 ml-1">Password</label>
+                      <Input
+                        type="password"
+                        placeholder="Enter Password"
+                        value={dob}
+                        onChange={(e) => setDob(e.target.value)}
+                        icon={<Lock size={18} />}
+                        className="focus:border-blue-500/50"
+                        required
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="w-full h-14 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 border-none group"
+                isLoading={loading}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  {role === 'student' ? 'Sign In as Student' : 'Sign In as Admin'}
+                  {!loading && <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />}
+                </span>
+              </Button>
+            </motion.form>
+          </AnimatePresence>
+
+          <p className="text-center text-slate-500 text-xs mt-10">
+            &copy; {new Date().getFullYear()} IT Department Portal. All rights reserved.
+          </p>
+        </motion.div>
+      </div>
+    </div>
+  );
+}

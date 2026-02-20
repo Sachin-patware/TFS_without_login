@@ -1,0 +1,65 @@
+# Environment variables (IMPORTANT: Contains sensitive data!)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Node
+node_modules/
+npm-debug.log
+package-lock.json
+.next/
+out/
+build/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+venv/
+env/
+ENV/
+db.sqlite3
+*.db
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# User caches and local app data
+AppData/
+AppData/**
+
+# VS Code extensions (local copies)
+.vscode/extensions/
+
+# OneDrive artifacts
+*.lnk
+
+# Logs
+*.log
+logs/
+
+# Django
+*.pot
+local_settings.py
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/

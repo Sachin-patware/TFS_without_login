@@ -65,11 +65,23 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const tokenFromUrl = searchParams.get('token') || '';
 
+  // URL Pre-set Parameters
+  const branchFromUrl = searchParams.get('branch');
+  const yearFromUrl = searchParams.get('year');
+  const semesterFromUrl = searchParams.get('semester');
+  const sectionFromUrl = searchParams.get('section');
+
   // Persistent Device Fingerprinting
   const [fingerprint, setFingerprint] = useState('');
 
   useEffect(() => {
     setMounted(true);
+
+    // Auto-fill from URL if present
+    if (branchFromUrl) setBranch(branchFromUrl);
+    if (yearFromUrl) setYear(yearFromUrl);
+    if (semesterFromUrl) setSemester(semesterFromUrl);
+    if (sectionFromUrl) setSection(sectionFromUrl);
 
     // Persistent Student ID (Fingerprint) with 15-minute expiry
     if (typeof window !== 'undefined') {
@@ -295,7 +307,7 @@ function LoginContent() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-300 ml-1">Branch</label>
-                        <Select value={branch} onValueChange={setBranch}>
+                        <Select value={branch} onValueChange={setBranch} disabled={!!branchFromUrl}>
                           <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
                             <SelectValue placeholder="Select Branch" />
                           </SelectTrigger>
@@ -309,7 +321,7 @@ function LoginContent() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-300 ml-1">Year</label>
-                        <Select value={year} onValueChange={handleYearChange}>
+                        <Select value={year} onValueChange={handleYearChange} disabled={!!yearFromUrl}>
                           <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
                             <SelectValue placeholder="Select Year" />
                           </SelectTrigger>
@@ -326,7 +338,7 @@ function LoginContent() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-300 ml-1">Semester</label>
-                        <Select value={semester} onValueChange={handleSemesterChange}>
+                        <Select value={semester} onValueChange={handleSemesterChange} disabled={!!semesterFromUrl}>
                           <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
                             <SelectValue placeholder="Select Semester" />
                           </SelectTrigger>
@@ -339,7 +351,7 @@ function LoginContent() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-300 ml-1">Section</label>
-                        <Select value={section} onValueChange={setSection}>
+                        <Select value={section} onValueChange={setSection} disabled={!!sectionFromUrl}>
                           <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
                             <SelectValue placeholder="Select Section" />
                           </SelectTrigger>

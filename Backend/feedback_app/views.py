@@ -12,11 +12,13 @@ from feedback_app.serializers import LoginSerializer, FeedbackSerializer
 from feedback_app.models.feedback_response import Feedback_Response
 from feedback_app.models.feedback_submissionlog import Feedback_SubmissionLog
 from feedback_app.models.academic_allocation import Academic_Allocation
+from feedback_app.models.faculty_teacher import Faculty_Teacher
+from django.db.models import Avg, F, Count
 from functools import wraps
 from feedback_app.auth import generate_jwt, jwt_required, jwt_admin_required
 
 # In-memory store for student access token (resets on server restart)
-CURRENT_ACCESS_TOKEN = "COLLEGE2026"
+CURRENT_ACCESS_TOKEN = "AITR0827"
 
 # LEGACY DECORATORS REMOVED (Replaced by feedback_app.auth)
 
@@ -853,6 +855,89 @@ def admin_update_token(request):
             'status': 'ok',
             'message': 'access token updated successfully',
             'token': CURRENT_ACCESS_TOKEN
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'error': str(e)}, status=500)
+
+@csrf_exempt
+@require_GET
+@jwt_admin_required
+def admin_teacher_report(request):
+    """
+    Categorizes teachers into 3 parts based on average rating:
+    - Excellent: 4-5
+    - Good: 2-4
+    - Need Improvement: < 2
+    """
+    try:
+        results = Feedback_Response.objects.values(
+            teacher_id=F('AllocationID__TeacherID__TeacherID'),
+            full_name=F('AllocationID__TeacherID__FullName')
+        ).annotate(
+            avg_rating=Avg(
+                (F('Q1_Rating') + F('Q2_Rating') + F('Q3_Rating') + F('Q4_Rating') + F('Q5_Rating') +
+                 F('Q6_Rating') + F('Q7_Rating') + F('Q8_Rating') + F('Q9_Rating') + F('Q10_Rating')) / 10.0
+            ),
+            q1=Avg('Q1_Rating'),
+            q2=Avg('Q2_Rating'),
+            q3=Avg('Q3_Rating'),
+            q4=Avg('Q4_Rating'),
+            q5=Avg('Q5_Rating'),
+            q6=Avg('Q6_Rating'),
+            q7=Avg('Q7_Rating'),
+            q8=Avg('Q8_Rating'),
+            q9=Avg('Q9_Rating'),
+            q10=Avg('Q10_Rating'),
+            response_count=Count('ResponseID')
+        ).order_by('-avg_rating')
+
+        report_data = []
+        summary = {
+            'excellent': 0,
+            'good': 0,
+            'needs_improvement': 0,
+            'total_teachers': 0
+        }
+
+        for res in results:
+            avg = float(res['avg_rating'] or 0)
+            category = ""
+            if avg >= 4.0:
+                category = "Excellent"
+                summary['excellent'] += 1
+            elif avg >= 2.0:
+                category = "Good"
+                summary['good'] += 1
+            else:
+                category = "Need Improvement"
+                summary['needs_improvement'] += 1
+            
+            summary['total_teachers'] += 1
+            
+            report_data.append({
+                'teacher_id': res['teacher_id'],
+                'full_name': res['full_name'],
+                'average_rating': round(avg, 2),
+                'response_count': res['response_count'],
+                'category': category,
+                'question_stats': {
+                    'q1': round(float(res['q1'] or 0), 2),
+                    'q2': round(float(res['q2'] or 0), 2),
+                    'q3': round(float(res['q3'] or 0), 2),
+                    'q4': round(float(res['q4'] or 0), 2),
+                    'q5': round(float(res['q5'] or 0), 2),
+                    'q6': round(float(res['q6'] or 0), 2),
+                    'q7': round(float(res['q7'] or 0), 2),
+                    'q8': round(float(res['q8'] or 0), 2),
+                    'q9': round(float(res['q9'] or 0), 2),
+                    'q10': round(float(res['q10'] or 0), 2),
+                }
+            })
+
+        return JsonResponse({
+            'status': 'ok',
+            'summary': summary,
+            'data': report_data
         })
     except Exception as e:
         return JsonResponse({'status': 'error', 'error': str(e)}, status=500)

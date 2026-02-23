@@ -43,6 +43,8 @@ const QUESTION_LABELS = [
     { key: 'q10', label: 'Overall Rating' },
 ];
 
+
+
 export default function DashboardPage() {
     const router = useRouter();
     const [allTeachers, setAllTeachers] = useState<Teacher[]>([]);
@@ -195,8 +197,11 @@ export default function DashboardPage() {
             </div>
         );
     }
-
     const pendingTeachers = allTeachers.filter(t => !t.is_submitted);
+    const noTeachersAssigned = !allTeachers?.length;
+    const isEvaluationComplete =
+        allTeachers?.length > 0 && !pendingTeachers?.length;
+
 
     return (
         <div className="min-h-screen bg-[#F8F9FF]">
@@ -215,15 +220,33 @@ export default function DashboardPage() {
             </div>
 
             <div className="max-w-6xl mx-2 px-2 space-y-6">
-                {pendingTeachers.length === 0 ? (
+                {noTeachersAssigned || isEvaluationComplete ? (
                     <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[40px] border border-gray-100 shadow-xl text-center">
-                        <div className="h-16 w-16 rounded-full bg-green-50 flex items-center justify-center mb-6">
-                            <CheckCircle2 className="w-8 h-8 text-green-500" />
+
+                        <div
+                            className={`h-16 w-16 rounded-full flex items-center justify-center mb-6 ${noTeachersAssigned ? "bg-gray-100" : "bg-green-50"
+                                }`}
+                        >
+                            {noTeachersAssigned ? (
+                                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                            ) : (
+                                <CheckCircle2 className="w-8 h-8 text-green-500" />
+                            )}
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Evaluations Complete</h3>
+
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">
+                            {noTeachersAssigned ? "No Records Found" : "Evaluations Complete"}
+                        </h3>
+
                         <p className="text-gray-500 max-w-md px-6 text-sm font-medium">
-                            Thank you for your valuable feedback. It helps us improve the academic experience.
+                            {noTeachersAssigned
+                                ? "There are no teachers available for evaluation."
+                                : "Thank you for your valuable feedback. It helps us improve the academic experience."}
                         </p>
+
                     </div>
                 ) : (
                     <div className="space-y-6">

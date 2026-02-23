@@ -65,13 +65,14 @@ export default function AdminLayout({
         <div className="min-h-screen bg-slate-50 relative overflow-x-hidden">
             {/* Background Decorative Elements */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                {/* <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-red-600/10 rounded-full blur-[120px] animate-pulse" />
-                <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" /> */}
+                <div className="absolute top-[-15%] right-[-10%] w-[45%] h-[45%] bg-indigo-500/[0.04] rounded-full blur-[100px]" />
+                <div className="absolute bottom-[-15%] left-[-10%] w-[40%] h-[40%] bg-violet-500/[0.04] rounded-full blur-[100px]" />
+                <div className="absolute top-[40%] left-[30%] w-[30%] h-[30%] bg-blue-500/[0.03] rounded-full blur-[120px]" />
             </div>
 
             {/* Top Navbar */}
-            <nav className="sticky top-0 z-[100] bg-slate-900/40 backdrop-blur-2xl border-b border-white/5 shadow-2xl">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav className="sticky top-0 z-[100] bg-slate-900/50 backdrop-blur-2xl border-b border-white/[0.08] shadow-[0_4px_30px_rgba(0,0,0,0.15)]">
+                <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-18 py-3">
                         {/* Logo and Brand */}
                         <div className="flex items-center gap-4 group cursor-pointer" onClick={() => router.push('/admin')}>

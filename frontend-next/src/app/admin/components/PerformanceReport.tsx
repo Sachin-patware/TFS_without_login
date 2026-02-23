@@ -132,7 +132,7 @@ export default function PerformanceReport() {
                 summary?.needs_improvement || 0
             ]],
             theme: 'grid',
-            headStyles: { fillStyle: 'fill', fillColor: [67, 56, 202] }
+            headStyles: { fillColor: [67, 56, 202] }
         });
 
         // Detail Table
@@ -183,10 +183,10 @@ export default function PerformanceReport() {
                         key={i}
                         onClick={() => setCategoryFilter(stat.category === categoryFilter ? null : stat.category)}
                         className={cn(
-                            "bg-white p-6 rounded-2xl border transition-all flex items-center gap-4 text-left group",
+                            "bg-white p-6 rounded-2xl border transition-all duration-300 flex items-center gap-4 text-left group hover:-translate-y-1 hover:shadow-lg",
                             categoryFilter === stat.category && stat.category !== null
-                                ? "ring-2 ring-offset-2 ring-indigo-500 border-indigo-200 shadow-lg shadow-indigo-100 scale-[1.02]"
-                                : "border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-200"
+                                ? "ring-2 ring-offset-2 ring-indigo-500 border-indigo-200 shadow-xl shadow-indigo-100/60 scale-[1.02]"
+                                : "border-slate-200 shadow-sm hover:border-indigo-200"
                         )}
                     >
                         <div className={cn("p-3 rounded-xl transition-transform group-hover:scale-110", stat.bg, stat.color)}>
@@ -208,8 +208,9 @@ export default function PerformanceReport() {
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Distribution Chart */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2.5">
+                        <div className="w-2 h-2 rounded-full bg-indigo-500" />
                         <Award className="text-indigo-600" size={20} />
                         Performance Distribution
                     </h3>
@@ -241,7 +242,7 @@ export default function PerformanceReport() {
                                 <Legend
                                     verticalAlign="bottom"
                                     height={36}
-                                    onClick={(e) => setCategoryFilter(e.value === categoryFilter ? null : e.value)}
+                                    onClick={(e) => setCategoryFilter(e.value === categoryFilter ? null : (e.value ?? null))}
                                     style={{ cursor: 'pointer' }}
                                 />
                             </PieChart>
@@ -250,8 +251,9 @@ export default function PerformanceReport() {
                 </div>
 
                 {/* Top Performers Bar Chart */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
                         <TrendingUp className="text-indigo-600" size={20} />
                         Top Rated Faculty
                     </h3>
@@ -287,8 +289,8 @@ export default function PerformanceReport() {
             </div>
 
             {/* Detailed Table */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
+                <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-gradient-to-r from-slate-50 to-white">
                     <div className="flex items-center gap-4">
                         <div>
                             <h3 className="text-xl font-black text-slate-900">Faculty Scorecard</h3>
@@ -336,7 +338,7 @@ export default function PerformanceReport() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                            <tr className="bg-gradient-to-r from-slate-50 to-slate-100/50 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
                                 <th className="px-6 py-4">Teacher ID</th>
                                 <th className="px-6 py-4">Full Name</th>
                                 <th className="px-6 py-4 text-center">Avg Rating</th>
@@ -347,7 +349,7 @@ export default function PerformanceReport() {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {filteredData.map((teacher) => (
-                                <tr key={teacher.teacher_id} className="hover:bg-slate-50 transition-colors group">
+                                <tr key={teacher.teacher_id} className="hover:bg-indigo-50/40 transition-colors duration-150 group">
                                     <td className="px-6 py-4 text-sm font-mono text-slate-500">{teacher.teacher_id}</td>
                                     <td className="px-6 py-4">
                                         <p className="text-sm font-bold text-slate-900">{teacher.full_name}</p>
@@ -394,7 +396,7 @@ export default function PerformanceReport() {
                                     <td className="px-6 py-4">
                                         <button
                                             onClick={() => setSelectedTeacher(teacher)}
-                                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1"
+                                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wider opacity-60 group-hover:opacity-100 transition-all duration-200 flex items-center gap-1 hover:gap-2"
                                         >
                                             View Profile
                                             <ChevronRight size={14} />
@@ -428,10 +430,10 @@ export default function PerformanceReport() {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
+                            className="relative bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh] border-t-4 border-t-indigo-500"
                         >
                             {/* Left Sidebar: Profile Summary */}
-                            <div className="md:w-1/3 bg-slate-50 p-8 border-r border-slate-100">
+                            <div className="md:w-1/3 bg-gradient-to-b from-slate-50 to-white p-8 border-r border-slate-100">
                                 <div className="flex flex-col items-center text-center">
                                     <div className={cn(
                                         "w-24 h-24 rounded-full flex items-center justify-center text-3xl font-black mb-4 border-4",
@@ -489,7 +491,7 @@ export default function PerformanceReport() {
                                 </div>
 
                                 {/* Radar Chart for Parameters */}
-                                <div className="h-[400px] w-full mb-8 bg-slate-50/50 rounded-3xl p-4 border border-slate-100">
+                                <div className="h-[400px] w-full mb-8 bg-gradient-to-br from-slate-50/50 to-indigo-50/20 rounded-3xl p-4 border border-slate-100 shadow-inner">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <RadarChart cx="50%" cy="50%" outerRadius="80%" data={getRadarData(selectedTeacher)}>
                                             <PolarGrid stroke="#e2e8f0" />
@@ -515,7 +517,7 @@ export default function PerformanceReport() {
                                 {/* Parameter List */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {Object.entries(selectedTeacher.question_stats).map(([key, value]) => (
-                                        <div key={key} className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 hover:border-indigo-200 transition-colors">
+                                        <div key={key} className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 hover:border-indigo-200 hover:shadow-sm transition-all duration-200 group/card">
                                             <span className="text-xs font-bold text-slate-600">{QUESTION_LABELS[key]}</span>
                                             <span className={cn(
                                                 "text-sm font-black",

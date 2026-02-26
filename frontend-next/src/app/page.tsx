@@ -308,10 +308,10 @@ function LoginContent() {
                       <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-300 ml-1">Branch</label>
                         <Select value={branch} onValueChange={setBranch} disabled={!!branchFromUrl}>
-                          <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
+                          <SelectTrigger className="bg-white/5 border-white/12 text-white focus:ring-blue-500/50">
                             <SelectValue placeholder="Select Branch" />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0f172a] border-white/10 text-slate-200">
+                          <SelectContent>
                             <SelectItem value="CS">CS</SelectItem>
                             <SelectItem value="IT">IT</SelectItem>
                             <SelectItem value="DS">DS</SelectItem>
@@ -330,7 +330,7 @@ function LoginContent() {
                           <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
                             <SelectValue placeholder="Select Year" />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0f172a] border-white/10 text-slate-200">
+                          <SelectContent>
                             <SelectItem value="1">1st Year</SelectItem>
                             <SelectItem value="2">2nd Year</SelectItem>
                             <SelectItem value="3">3rd Year</SelectItem>
@@ -347,7 +347,7 @@ function LoginContent() {
                           <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
                             <SelectValue placeholder="Select Semester" />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0f172a] border-white/10 text-slate-200">
+                          <SelectContent>
                             {(year ? YEAR_SEMESTER_MAP[year] : [1, 2, 3, 4, 5, 6, 7, 8]).map(s => (
                               <SelectItem key={s} value={s.toString()}>{s}th Semester</SelectItem>
                             ))}
@@ -360,7 +360,7 @@ function LoginContent() {
                           <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500/50">
                             <SelectValue placeholder="Select Section" />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0f172a] border-white/10 text-slate-200">
+                          <SelectContent>
                             {[1, 2, 3, 4, 5].map(s => (
                               <SelectItem key={s} value={s.toString()}>Section {s}</SelectItem>
                             ))}

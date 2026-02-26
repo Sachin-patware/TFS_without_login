@@ -101,7 +101,7 @@ const renderInput = (
                         <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                 </div>
-                <SelectContent className="bg-white border-slate-200 rounded-xl shadow-xl z-[100]">
+                <SelectContent>
                     {choices.map((c: any) => (
                         <SelectItem
                             key={String(c.value)}
@@ -134,7 +134,7 @@ const renderInput = (
                         <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                 </div>
-                <SelectContent className="bg-white border-slate-200 rounded-xl shadow-xl z-[100]">
+                <SelectContent>
                     {boolChoices.map((c) => (
                         <SelectItem
                             key={c.value}

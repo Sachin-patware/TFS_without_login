@@ -312,10 +312,15 @@ function LoginContent() {
                             <SelectValue placeholder="Select Branch" />
                           </SelectTrigger>
                           <SelectContent className="bg-[#0f172a] border-white/10 text-slate-200">
-                            <SelectItem value="CS">CS (Computer Science)</SelectItem>
-                            <SelectItem value="IT">IT (Information Technology)</SelectItem>
-                            <SelectItem value="DS">DS (Data Science)</SelectItem>
-                            <SelectItem value="AIML">AIML (AI & ML)</SelectItem>
+                            <SelectItem value="CS">CS</SelectItem>
+                            <SelectItem value="IT">IT</SelectItem>
+                            <SelectItem value="DS">DS</SelectItem>
+                            <SelectItem value="AIML">AIML</SelectItem>
+                            <SelectItem value="CY">CY</SelectItem>
+                            <SelectItem value="CSIT">CSIT</SelectItem>
+                            <SelectItem value="EC">EC</SelectItem>
+                            <SelectItem value="CIVIL">CIVIL</SelectItem>
+                            <SelectItem value="MECHANICAL">MECHANICAL</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

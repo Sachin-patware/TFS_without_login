@@ -2,6 +2,9 @@ from rest_framework import serializers
 from django.utils import timezone
 from django import forms
 from datetime import date
+from feedback_app.models.academic_subject import Academic_Subject
+from feedback_app.models.faculty_teacher import Faculty_Teacher
+from feedback_app.models.academic_allocation import Academic_Allocation
 
 
 class LoginSerializer(forms.Form):
@@ -26,7 +29,7 @@ class LoginSerializer(forms.Form):
 
     def clean_branch(self):
         branch = self.cleaned_data.get('branch', '').upper().strip()
-        valid_branches = ['CS', 'IT', 'DS', 'AIML']
+        valid_branches = ['CS', 'IT', 'DS', 'AIML','CY','CSIT','EC','Mechinical','Civil']
         if branch not in valid_branches:
             raise forms.ValidationError(f"Invalid branch. Must be one of: {', '.join(valid_branches)}")
         return branch
@@ -70,7 +73,7 @@ class FeedbackSerializer(forms.Form):
     q10 = forms.IntegerField(min_value=1, max_value=5, required=True,
         error_messages={"required": "q10 is required", "min_value": "rating must be 1–5", "max_value": "rating must be 1–5"})
 
-    comments = forms.CharField(required=False, max_length=500)
+    comments = forms.CharField(required=False, max_length=20)
 
     # --- Cleaners ---
     def clean_subject_code(self):
@@ -83,3 +86,58 @@ class FeedbackSerializer(forms.Form):
 
     def clean(self):
         return super().clean()
+
+
+class AcademicSubjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Academic_Subject
+        fields = '__all__'
+
+    def validate_SubjectCode(self, value):
+        if not value.isalnum():
+            raise serializers.ValidationError("Subject code must be alphanumeric.")
+        return value.upper()
+
+    def validate_Semester(self, value):
+        if not (1 <= value <= 8):
+            raise serializers.ValidationError("Semester must be between 1 and 8.")
+        return value
+
+    def validate_Branch(self, value):
+        valid_branches = ['CS', 'IT', 'DS', 'AIML', 'CY', 'CSIT', 'EC','CIVIL', 'MECHANICAL']
+        if value.upper() not in valid_branches:
+            raise serializers.ValidationError(f"Invalid branch. Must be one of: {', '.join(valid_branches)}")
+        return value.upper()
+
+
+class FacultyTeacherSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Faculty_Teacher
+        fields = '__all__'
+
+    def validate_TeacherID(self, value):
+        if len(value) > 10:
+            raise serializers.ValidationError("Teacher ID must be at most 10 characters.")
+        return value.upper()
+
+
+class AcademicAllocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Academic_Allocation
+        fields = '__all__'
+        read_only_fields = ['AllocationID']
+
+    def validate_Target_Year(self, value):
+        if not (1 <= value <= 4):
+            raise serializers.ValidationError("Target year must be between 1 and 4.")
+        return value
+
+    def validate_Target_Semester(self, value):
+        if not (1 <= value <= 8):
+            raise serializers.ValidationError("Target semester must be between 1 and 8.")
+        return value
+
+    def validate_Target_Section(self, value):
+        if not (1 <= value <= 5):
+            raise serializers.ValidationError("Target section must be between 1 and 5.")
+        return value

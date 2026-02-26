@@ -8,7 +8,7 @@ from django.db import transaction
 import json
 import random
 import string
-from feedback_app.serializers import LoginSerializer, FeedbackSerializer
+from feedback_app.serializers import LoginSerializer, FeedbackSerializer, AcademicSubjectSerializer, FacultyTeacherSerializer, AcademicAllocationSerializer
 from feedback_app.models.feedback_response import Feedback_Response
 from feedback_app.models.feedback_submissionlog import Feedback_SubmissionLog
 from feedback_app.models.academic_allocation import Academic_Allocation
@@ -588,19 +588,42 @@ def admin_get_table_data(request, table_name):
                 meta['type'] = 'boolean'
             elif internal_type in ['DateField', 'DateTimeField']:
                 meta['type'] = 'date'
-            elif internal_type in ['IntegerField', 'BigIntegerField', 'PositiveSmallIntegerField']:
+            elif internal_type in ['IntegerField', 'BigIntegerField', 'PositiveSmallIntegerField', 'AutoField', 'BigAutoField', 'SmallAutoField']:
                 meta['type'] = 'number'
-                # Check for AutoField
-                from django.db import models # Local import to avoid circular dependency issues if any, or ensuring it's available
-                if isinstance(f, (models.AutoField, models.BigAutoField, models.SmallAutoField)):
+                # Check for AutoField or similar auto-incrementing fields
+                from django.db import models
+                if isinstance(f, (models.AutoField, models.BigAutoField, models.SmallAutoField)) or getattr(f, 'auto_created', False):
                     meta['is_auto'] = True
             elif internal_type in ['FloatField', 'DecimalField']:
                 meta['type'] = 'float'
                 
             # Extract choices if available
             if f.choices:
-                meta['type'] = 'select'  # Override type to select if choices exist
+                meta['type'] = 'select' 
                 meta['choices'] = [{'value': c[0], 'label': str(c[1])} for c in f.choices]
+            
+            # --- Inject System Selectors for Common Fields ---
+            field_name_lower = f.name.lower()
+            
+            # Branch Choices
+            if 'branch' in field_name_lower:
+                meta['type'] = 'select'
+                meta['choices'] = [{'value': b, 'label': b} for b in ['CS', 'IT', 'DS', 'AIML', 'CY', 'CSIT', 'EC', 'CIVIL', 'MECHANICAL']]
+                
+            # Semester Choices
+            elif 'semester' in field_name_lower:
+                meta['type'] = 'select'
+                meta['choices'] = [{'value': i, 'label': f"Semester {i}"} for i in range(1, 9)]
+                
+            # Year Choices
+            elif 'year' in field_name_lower:
+                meta['type'] = 'select'
+                meta['choices'] = [{'value': i, 'label': f"Year {i}"} for i in range(1, 5)]
+                
+            # Section Choices
+            elif 'section' in field_name_lower:
+                meta['type'] = 'select'
+                meta['choices'] = [{'value': i, 'label': f"Section {i}"} for i in range(1, 6)]
             
             field_meta[f.name] = meta
         
@@ -676,6 +699,33 @@ def admin_add_row(request, table_name):
         except:
             return JsonResponse({"status": "error", "error": "invalid JSON"}, status=400)
             
+        # Map models to serializers for better validation
+        serializer_map = {
+            'Academic_Subject': AcademicSubjectSerializer,
+            'Faculty_Teacher': FacultyTeacherSerializer,
+            'Academic_Allocation': AcademicAllocationSerializer
+        }
+        
+        serializer_class = serializer_map.get(model.__name__)
+        
+        if serializer_class:
+            serializer = serializer_class(data=payload)
+            if not serializer.is_valid():
+                # Extract and format errors
+                error_msgs = []
+                for field, errors in serializer.errors.items():
+                    error_msgs.append(f"{field}: {', '.join(errors)}")
+                return JsonResponse({"status": "error", "error": "; ".join(error_msgs)}, status=400)
+            
+            # Use serializer data to create obj
+            obj = serializer.save()
+            return JsonResponse({
+                "status": "ok",
+                "message": "row added successfully",
+                "pk": obj.pk
+            })
+            
+        # Fallback for models without dedicated serializers
         # Create new object instance
         obj = model()
         
@@ -757,6 +807,30 @@ def admin_update_row(request, table_name, row_id):
                 "error": f"row with id {row_id} not found"
             }, status=404)
         
+        # Map models to serializers for better validation
+        serializer_map = {
+            'Academic_Subject': AcademicSubjectSerializer,
+            'Faculty_Teacher': FacultyTeacherSerializer,
+            'Academic_Allocation': AcademicAllocationSerializer
+        }
+        
+        serializer_class = serializer_map.get(model.__name__)
+        
+        if serializer_class:
+            serializer = serializer_class(obj, data=payload, partial=True)
+            if not serializer.is_valid():
+                error_msgs = []
+                for field, errors in serializer.errors.items():
+                    error_msgs.append(f"{field}: {', '.join(errors)}")
+                return JsonResponse({"status": "error", "error": "; ".join(error_msgs)}, status=400)
+            
+            serializer.save()
+            return JsonResponse({
+                "status": "ok",
+                "message": "row updated successfully"
+            })
+
+        # Fallback for models without dedicated serializers
         # Update fields
         for field, value in payload.items():
             if hasattr(obj, field):

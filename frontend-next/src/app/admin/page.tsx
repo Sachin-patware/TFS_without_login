@@ -1,6 +1,6 @@
 "use client"
-import React, { useEffect, useState } from 'react';
-import { Database, Loader2, AlertCircle, Edit, Trash2, ChevronLeft, ChevronRight, Search, X, Save, ArrowUpDown, ArrowUp, ArrowDown, Copy, RefreshCw, Key, Link, BarChart3, TableProperties, Plus, Shield } from 'lucide-react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { Database, Loader2, AlertCircle, Edit, Trash2, ChevronLeft, ChevronRight, Search, X, Save, ArrowUpDown, ArrowUp, ArrowDown, Copy, RefreshCw, Key, Link, BarChart3, TableProperties, Plus, Shield, User, BookText, Briefcase, Calendar, School, Hash, GraduationCap, ClipboardEdit } from 'lucide-react';
 import API_BASE_URL from '@/config';
 import { apiFetch } from '@/lib/api';
 import { Toast, ToastType } from '@/components/ui/Toast';
@@ -34,64 +34,138 @@ interface TableData {
     total_pages: number;
 }
 
-const renderInput = (field: string, value: any, onChange: (val: any) => void, isPk: boolean, tableData: TableData | null) => {
+const formatLabel = (label: string) => {
+    return label
+        .replace(/_/g, ' ')
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, (str) => str.toUpperCase())
+        .trim()
+        .replace(/\s+/g, ' ');
+};
+
+const getFieldIcon = (field: string) => {
+    const f = field.toLowerCase();
+    if (f.includes('teacher') || f.includes('faculty')) return <User size={16} className="text-indigo-500" />;
+    if (f.includes('subject') || f.includes('code')) return <BookText size={16} className="text-violet-500" />;
+    if (f.includes('branch')) return <Briefcase size={16} className="text-blue-500" />;
+    if (f.includes('year')) return <Calendar size={16} className="text-amber-500" />;
+    if (f.includes('semester')) return <School size={16} className="text-emerald-500" />;
+    if (f.includes('section')) return <Hash size={16} className="text-rose-500" />;
+    if (f.includes('name')) return <GraduationCap size={16} className="text-cyan-500" />;
+    return <ClipboardEdit size={16} className="text-slate-400" />;
+};
+
+const renderInput = (
+    field: string,
+    value: any,
+    onChange: (val: any) => void,
+    isPk: boolean,
+    tableData: TableData | null,
+    allData: any = {}
+) => {
     if (!tableData) return null;
 
-    const meta = tableData.field_meta?.[field] || { type: 'text', required: false, is_auto: false };
+    const meta = tableData.field_meta?.[field] || { type: 'text', required: false, is_auto: false, choices: [] };
 
+    // Smart Year/Semester Filtering
+    let choices = meta.choices || [];
+    if (field.toLowerCase().includes('semester')) {
+        const yearField = tableData.fields.find(f => f.toLowerCase().includes('year'));
+        if (yearField) {
+            const currentYear = Number(allData[yearField]);
+            if (currentYear) {
+                const startSem = (currentYear - 1) * 2 + 1;
+                const endSem = currentYear * 2;
+                choices = (meta.choices || []).filter(c => {
+                    const v = Number(c.value);
+                    return v >= startSem && v <= endSem;
+                });
+            }
+        }
+    }
 
-    if (meta.type === 'select' && meta.choices) {
+    if (meta.type === 'select' && choices.length > 0) {
         return (
-            <select
-                value={value ?? ''}
-                onChange={(e) => onChange(e.target.value)}
-
-                className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 transition-all font-medium"
+            <Select
+                value={String(value ?? '')}
+                onValueChange={(val) => {
+                    const choice = meta.choices?.find(c => String(c.value) === val);
+                    onChange(choice ? choice.value : val);
+                }}
             >
-                <option value="">Select...</option>
-                {meta.choices.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-            </select>
+                <div className="relative group">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 transition-colors group-focus-within:text-indigo-600">
+                        {getFieldIcon(field)}
+                    </div>
+                    <SelectTrigger className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-semibold text-sm shadow-sm hover:border-slate-300 h-auto">
+                        <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                </div>
+                <SelectContent className="bg-white border-slate-200 rounded-xl shadow-xl z-[100]">
+                    {choices.map((c: any) => (
+                        <SelectItem
+                            key={String(c.value)}
+                            value={String(c.value)}
+                            className="font-medium text-slate-700 focus:bg-indigo-50 focus:text-indigo-700 cursor-pointer"
+                        >
+                            {c.label}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
         );
     }
 
     if (meta.type === 'boolean') {
+        const boolChoices = [
+            { value: 'true', label: 'True' },
+            { value: 'false', label: 'False' }
+        ];
         return (
-            <select
+            <Select
                 value={value === true ? 'true' : value === false ? 'false' : ''}
-                onChange={(e) => onChange(e.target.value === 'true')}
-
-                className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 transition-all font-medium"
+                onValueChange={(val) => onChange(val === 'true')}
             >
-                <option value="">Select...</option>
-                <option value="true">True</option>
-                <option value="false">False</option>
-            </select>
-        );
-    }
-
-    if (meta.type === 'date') {
-        return (
-            <input
-                type="text"
-                value={value ?? ''}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder="YYYY-MM-DD"
-
-                className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 transition-all font-medium placeholder-slate-400"
-            />
+                <div className="relative group">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 transition-colors group-focus-within:text-indigo-600">
+                        <Shield size={16} className="text-emerald-500" />
+                    </div>
+                    <SelectTrigger className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-semibold text-sm shadow-sm hover:border-slate-300 h-auto">
+                        <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                </div>
+                <SelectContent className="bg-white border-slate-200 rounded-xl shadow-xl z-[100]">
+                    {boolChoices.map((c) => (
+                        <SelectItem
+                            key={c.value}
+                            value={c.value}
+                            className="font-medium text-slate-700 focus:bg-indigo-50 focus:text-indigo-700 cursor-pointer"
+                        >
+                            {c.label}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
         );
     }
 
     return (
-        <input
-            type="text"
-            value={value ?? ''}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={isPk && (meta.is_auto ?? false) ? '(Auto)' : `Enter ${field.replace(/_/g, ' ')}...`}
-            className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-500 transition-all font-medium placeholder-slate-400"
-        />
+        <div className="relative group">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors group-focus-within:text-indigo-600">
+                {getFieldIcon(field)}
+            </div>
+            <input
+                type={meta.type === 'number' ? 'number' : meta.type === 'date' ? 'date' : 'text'}
+                value={value ?? ''}
+                onChange={(e) => {
+                    const val = e.target.value;
+                    onChange(meta.type === 'number' ? (val === '' ? '' : Number(val)) : val);
+                }}
+                disabled={isPk && (meta.is_auto ?? false)}
+                placeholder={isPk && (meta.is_auto ?? false) ? '(Auto)' : meta.type === 'date' ? "YYYY-MM-DD" : `Enter ${formatLabel(field)}...`}
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400 transition-all font-semibold text-sm placeholder:text-slate-400 placeholder:font-medium shadow-sm hover:border-slate-300"
+            />
+        </div>
     );
 };
 
@@ -108,6 +182,33 @@ export default function AdminDashboard() {
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [searchQuery, setSearchQuery] = useState('');
     const [isPaginated, setIsPaginated] = useState(true);
+
+    // Horizontal scroll shadow indicators
+    const tableScrollRef = useRef<HTMLDivElement>(null);
+    const [scrollShadow, setScrollShadow] = useState({ left: false, right: false });
+
+    const updateScrollShadow = useCallback(() => {
+        const el = tableScrollRef.current;
+        if (!el) return;
+        const { scrollLeft, scrollWidth, clientWidth } = el;
+        setScrollShadow({
+            left: scrollLeft > 5,
+            right: scrollLeft + clientWidth < scrollWidth - 5,
+        });
+    }, []);
+
+    useEffect(() => {
+        const el = tableScrollRef.current;
+        if (!el) return;
+        updateScrollShadow();
+        el.addEventListener('scroll', updateScrollShadow, { passive: true });
+        const ro = new ResizeObserver(updateScrollShadow);
+        ro.observe(el);
+        return () => {
+            el.removeEventListener('scroll', updateScrollShadow);
+            ro.disconnect();
+        };
+    }, [updateScrollShadow, tableData]);
 
     const READ_ONLY_TABLES = ['feedback_response', 'feedback_submissionlog'];
 
@@ -511,6 +612,12 @@ export default function AdminDashboard() {
                                             <SelectItem value="IT">IT</SelectItem>
                                             <SelectItem value="DS">DS</SelectItem>
                                             <SelectItem value="AIML">AIML</SelectItem>
+                                            <SelectItem value="CY">CY</SelectItem>
+                                            <SelectItem value="CSIT">CSIT</SelectItem>
+                                            <SelectItem value="EC">EC</SelectItem>
+                                            <SelectItem value="CIVIL">CIVIL</SelectItem>
+                                            <SelectItem value="MECHANICAL">MECHANICAL</SelectItem>
+
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -703,110 +810,119 @@ export default function AdminDashboard() {
                                 </div>
 
                                 {/* Table Data */}
-                                <div className="flex-1 overflow-x-auto overflow-y-auto w-full relative">
-                                    {loading && (
-                                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                                            <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
-                                        </div>
+                                <div className="flex-1 w-full relative">
+                                    {/* Scroll shadow indicators */}
+                                    {scrollShadow.left && (
+                                        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-20 pointer-events-none" />
                                     )}
+                                    {scrollShadow.right && (
+                                        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-20 pointer-events-none" />
+                                    )}
+                                    <div ref={tableScrollRef} className="overflow-x-auto overflow-y-auto w-full h-full relative">
+                                        {loading && (
+                                            <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                                                <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
+                                            </div>
+                                        )}
 
-                                    {tableData && tableData.data.length > 0 ? (
-                                        <table className="w-full min-w-max text-left">
-                                            <thead>
-                                                <tr className="bg-slate-50 border-b-2 border-slate-200 sticky top-0 z-10">
-                                                    <th className="px-4 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400 w-10 text-center">#</th>
-                                                    {tableData.fields.map((field) => (
-                                                        <th
-                                                            key={field}
-                                                            onClick={() => handleSort(field)}
-                                                            className="px-4 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400 cursor-pointer hover:text-indigo-600 transition-colors select-none group whitespace-nowrap"
-                                                        >
-                                                            <div className="flex items-center gap-1.5">
-                                                                {field.replace(/_/g, ' ')}
-                                                                {sortBy === field ? (
-                                                                    sortOrder === 'asc' ? <ArrowUp size={11} className="text-indigo-500" /> : <ArrowDown size={11} className="text-indigo-500" />
-                                                                ) : (
-                                                                    <ArrowUpDown size={11} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                                )}
-                                                            </div>
-                                                        </th>
-                                                    ))}
-                                                    {!READ_ONLY_TABLES.some(t => t.toLowerCase() === selectedTable.toLowerCase()) && (
-                                                        <th className="px-4 py-3.5 text-right text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400 sticky right-0 bg-slate-50 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.04)] z-20">
-                                                            Actions
-                                                        </th>
-                                                    )}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {tableData.data.map((row, idx) => (
-                                                    <tr key={idx} className={cn(
-                                                        "border-b border-slate-100 hover:bg-indigo-50/50 transition-colors duration-150 group",
-                                                        idx % 2 === 1 && "bg-slate-50/40"
-                                                    )}>
-                                                        <td className="px-4 py-3 text-center">
-                                                            <span className="text-[11px] font-bold text-slate-300">{(isPaginated ? (currentPage - 1) * pageSize : 0) + idx + 1}</span>
-                                                        </td>
-                                                        {tableData.fields.map((field) => {
-                                                            const meta = tableData.field_meta?.[field];
-                                                            const value = row[field];
-
-                                                            let content;
-                                                            if (meta?.type === 'boolean') {
-                                                                content = value ? (
-                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                                                        Active
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-red-50 text-red-600 border border-red-200">
-                                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                                                                        Inactive
-                                                                    </span>
-                                                                );
-                                                            } else if (field.toLowerCase().includes('id') || field.toLowerCase().includes('code')) {
-                                                                content = <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded">{String(value ?? '-')}</span>;
-                                                            } else {
-                                                                content = <span className="text-slate-600">{String(value ?? '-')}</span>;
-                                                            }
-
-                                                            return (
-                                                                <td key={field} className="px-4 py-3 text-sm align-middle max-w-[200px] truncate">
-                                                                    {content}
-                                                                </td>
-                                                            );
-                                                        })}
-                                                        <td className="px-4 py-3 text-right sticky right-0 bg-white group-hover:bg-indigo-50/50 group-even:bg-slate-50/40 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.04)] align-middle z-10 transition-colors duration-150">
-                                                            {!READ_ONLY_TABLES.some(t => t.toLowerCase() === selectedTable.toLowerCase()) && (
-                                                                <div className="flex justify-end gap-1.5">
-                                                                    <button
-                                                                        onClick={() => handleEdit(row)}
-                                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 hover:border-indigo-200 transition-all active:scale-95"
-                                                                        title="Edit"
-                                                                    >
-                                                                        <Edit size={12} />
-                                                                        Edit
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => setDeleteConfirm(row)}
-                                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 hover:border-red-200 transition-all active:scale-95"
-                                                                        title="Delete"
-                                                                    >
-                                                                        <Trash2 size={12} />
-                                                                    </button>
+                                        {tableData && tableData.data.length > 0 ? (
+                                            <table className="w-full min-w-max text-left">
+                                                <thead>
+                                                    <tr className="bg-slate-50 border-b-2 border-slate-200 sticky top-0 z-10">
+                                                        <th className="px-4 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400 w-10 text-center">#</th>
+                                                        {tableData.fields.map((field) => (
+                                                            <th
+                                                                key={field}
+                                                                onClick={() => handleSort(field)}
+                                                                className="px-4 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400 cursor-pointer hover:text-indigo-600 transition-colors select-none group whitespace-nowrap"
+                                                            >
+                                                                <div className="flex items-center gap-1.5">
+                                                                    {field.replace(/_/g, ' ')}
+                                                                    {sortBy === field ? (
+                                                                        sortOrder === 'asc' ? <ArrowUp size={11} className="text-indigo-500" /> : <ArrowDown size={11} className="text-indigo-500" />
+                                                                    ) : (
+                                                                        <ArrowUpDown size={11} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                    )}
                                                                 </div>
-                                                            )}
-                                                        </td>
+                                                            </th>
+                                                        ))}
+                                                        {!READ_ONLY_TABLES.some(t => t.toLowerCase() === selectedTable.toLowerCase()) && (
+                                                            <th className="px-4 py-3.5 text-right text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400 sticky right-0 bg-slate-50 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.04)] z-20">
+                                                                Actions
+                                                            </th>
+                                                        )}
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    ) : !loading && (
-                                        <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                                            <Database size={48} className="mb-4 opacity-20" />
-                                            <p className="font-medium">No records found</p>
-                                        </div>
-                                    )}
+                                                </thead>
+                                                <tbody>
+                                                    {tableData.data.map((row, idx) => (
+                                                        <tr key={idx} className={cn(
+                                                            "border-b border-slate-100 hover:bg-indigo-50/50 transition-colors duration-150 group",
+                                                            idx % 2 === 1 && "bg-slate-50/40"
+                                                        )}>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <span className="text-[11px] font-bold text-slate-300">{(isPaginated ? (currentPage - 1) * pageSize : 0) + idx + 1}</span>
+                                                            </td>
+                                                            {tableData.fields.map((field) => {
+                                                                const meta = tableData.field_meta?.[field];
+                                                                const value = row[field];
+
+                                                                let content;
+                                                                if (meta?.type === 'boolean') {
+                                                                    content = value ? (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                                            Active
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-red-50 text-red-600 border border-red-200">
+                                                                            <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                                                                            Inactive
+                                                                        </span>
+                                                                    );
+                                                                } else if (field.toLowerCase().includes('id') || field.toLowerCase().includes('code')) {
+                                                                    content = <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded">{String(value ?? '-')}</span>;
+                                                                } else {
+                                                                    content = <span className="text-slate-600">{String(value ?? '-')}</span>;
+                                                                }
+
+                                                                return (
+                                                                    <td key={field} className="px-4 py-3 text-sm align-middle max-w-[200px] truncate">
+                                                                        {content}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                            <td className="px-4 py-3 text-right sticky right-0 bg-white group-hover:bg-indigo-50/50 group-even:bg-slate-50/40 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.04)] align-middle z-10 transition-colors duration-150">
+                                                                {!READ_ONLY_TABLES.some(t => t.toLowerCase() === selectedTable.toLowerCase()) && (
+                                                                    <div className="flex justify-end gap-1.5">
+                                                                        <button
+                                                                            onClick={() => handleEdit(row)}
+                                                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 hover:border-indigo-200 transition-all active:scale-95"
+                                                                            title="Edit"
+                                                                        >
+                                                                            <Edit size={12} />
+                                                                            Edit
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => setDeleteConfirm(row)}
+                                                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 hover:border-red-200 transition-all active:scale-95"
+                                                                            title="Delete"
+                                                                        >
+                                                                            <Trash2 size={12} />
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        ) : !loading && (
+                                            <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+                                                <Database size={48} className="mb-4 opacity-20" />
+                                                <p className="font-medium">No records found</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Footer: Pagination */}
@@ -908,7 +1024,9 @@ export default function AdminDashboard() {
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
                             <div>
                                 <h3 className="text-xl font-black text-slate-900">Edit Record</h3>
-                                <p className="text-sm text-slate-500 font-medium">{tableData.model_name} • {tableData.pk_field}: {editingRow[tableData.pk_field]}</p>
+                                <p className="text-sm text-slate-500 font-medium">
+                                    {tableData.model_name} • {formatLabel(tableData.pk_field)}: <span className="text-indigo-600 font-bold">{editingRow[tableData.pk_field]}</span>
+                                </p>
                             </div>
                             <button onClick={() => setEditingRow(null)} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">
                                 <X size={20} />
@@ -916,18 +1034,21 @@ export default function AdminDashboard() {
                         </div>
                         <div className="p-6 overflow-y-auto flex-1">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {tableData.fields.map((field) => (
-                                    <div key={field}>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-2 capitalize">{field.replace(/_/g, ' ')}</label>
-                                        {renderInput(
-                                            field,
-                                            editingRow[field],
-                                            (val) => setEditingRow({ ...editingRow, [field]: val }),
-                                            field === tableData.pk_field,
-                                            tableData
-                                        )}
-                                    </div>
-                                ))}
+                                {tableData.fields
+                                    .filter(field => !tableData.field_meta?.[field]?.is_auto)
+                                    .map((field) => (
+                                        <div key={field} className="space-y-1.5">
+                                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider pl-1">{formatLabel(field)}</label>
+                                            {renderInput(
+                                                field,
+                                                editingRow[field],
+                                                (val) => setEditingRow({ ...editingRow, [field]: val }),
+                                                field === tableData.pk_field,
+                                                tableData,
+                                                editingRow
+                                            )}
+                                        </div>
+                                    ))}
                             </div>
                         </div>
                         <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end gap-3">
@@ -969,19 +1090,21 @@ export default function AdminDashboard() {
                         </div>
                         <div className="p-6 overflow-y-auto flex-1">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {tableData.fields.map((field) => (
-                                    <div key={field}>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-2 capitalize">{field.replace(/_/g, ' ')}</label>
-                                        {renderInput(
-                                            field,
-                                            newRowData[field],
-                                            (val) => setNewRowData({ ...newRowData, [field]: val }),
-                                            field === tableData.pk_field,
-                                            tableData
-                                        )}
-
-                                    </div>
-                                ))}
+                                {tableData.fields
+                                    .filter(field => !tableData.field_meta?.[field]?.is_auto)
+                                    .map((field) => (
+                                        <div key={field} className="space-y-1.5">
+                                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider pl-1">{formatLabel(field)}</label>
+                                            {renderInput(
+                                                field,
+                                                newRowData[field],
+                                                (val) => setNewRowData({ ...newRowData, [field]: val }),
+                                                field === tableData.pk_field,
+                                                tableData,
+                                                newRowData
+                                            )}
+                                        </div>
+                                    ))}
                             </div>
                         </div>
                         <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end gap-3">

@@ -157,6 +157,69 @@ export default function PerformanceReport() {
         doc.save(`Faculty_Performance_Report_${new Date().toISOString().split('T')[0]}.pdf`);
     };
 
+    const handleExportTeacherPDF = (teacher: TeacherStat) => {
+        const doc = new jsPDF();
+
+        // Header
+        doc.setFontSize(22);
+        doc.setTextColor(67, 56, 202); // indigo-700
+        doc.text("Teacher Performance Report", 14, 25);
+
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 14, 32);
+
+        // Teacher Info Section
+        doc.setDrawColor(226, 232, 240); // slate-200
+        doc.line(14, 40, 196, 40);
+
+        doc.setFontSize(16);
+        doc.setTextColor(30, 41, 59); // slate-800
+        doc.text(teacher.full_name, 14, 52);
+
+        doc.setFontSize(11);
+        doc.setTextColor(100);
+        doc.text(`Teacher ID: ${teacher.teacher_id}`, 14, 60);
+
+        // Summary Stats Grid
+        autoTable(doc, {
+            startY: 70,
+            head: [['Overall Rating', 'Total Feedbacks', 'Performance Category']],
+            body: [[
+                `${teacher.average_rating} / 5.0`,
+                teacher.response_count.toString(),
+                teacher.category
+            ]],
+            theme: 'grid',
+            headStyles: { fillColor: [67, 56, 202] },
+            styles: { fontSize: 12, cellPadding: 5 }
+        });
+
+        // Detailed Parameters Table
+        doc.setFontSize(14);
+        doc.setTextColor(30, 41, 59);
+        doc.text("Performance Breakdown", 14, (doc as any).lastAutoTable.finalY + 15);
+
+        const parametersBody = Object.entries(teacher.question_stats).map(([key, value]) => [
+            QUESTION_LABELS[key] || key,
+            value.toString()
+        ]);
+
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY + 20,
+            head: [['Evaluation Parameter', 'Score (Out of 5)']],
+            body: parametersBody,
+            headStyles: { fillColor: [79, 70, 229] }, // indigo-600
+            alternateRowStyles: { fillColor: [249, 250, 251] },
+            columnStyles: {
+                0: { cellWidth: 140 },
+                1: { cellWidth: 40, halign: 'center' }
+            }
+        });
+
+        doc.save(`Teacher_Report_${teacher.full_name.replace(/\s+/g, '_')}.pdf`);
+    };
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center py-24 space-y-4">
@@ -482,12 +545,21 @@ export default function PerformanceReport() {
                                         <h3 className="text-xl font-black text-slate-900">Performance Breakdown</h3>
                                         <p className="text-sm text-slate-500">Detailed scores across 10 evaluation parameters</p>
                                     </div>
-                                    <button
-                                        onClick={() => setSelectedTeacher(null)}
-                                        className="p-2 bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200 hover:text-slate-600 transition-all"
-                                    >
-                                        <X size={20} />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => handleExportTeacherPDF(selectedTeacher)}
+                                            className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all font-bold text-xs active:scale-95 border border-indigo-100"
+                                        >
+                                            <FileDown size={16} />
+                                            Export PDF
+                                        </button>
+                                        <button
+                                            onClick={() => setSelectedTeacher(null)}
+                                            className="p-2 bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200 hover:text-slate-600 transition-all"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Radar Chart for Parameters */}

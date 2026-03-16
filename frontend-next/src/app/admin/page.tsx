@@ -697,16 +697,7 @@ export default function AdminDashboard() {
                                 <h2 className="font-bold text-slate-800 text-sm">Database Tables</h2>
                             </div>
                             <div className="p-3">
-                                <div className="relative mb-3">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                                        placeholder="Filter tables..."
-                                        value={filterTables}
-                                        onChange={(e) => setFilterTables(e.target.value)}
-                                    />
-                                </div>
+
                                 <div className="space-y-1 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
                                     {filteredTableList.map((table) => (
                                         <button
@@ -811,12 +802,18 @@ export default function AdminDashboard() {
 
                                 {/* Table Data */}
                                 <div className="flex-1 w-full relative">
-                                    {/* Scroll shadow indicators */}
+                                    {/* Left fade — hidden columns behind */}
                                     {scrollShadow.left && (
-                                        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-20 pointer-events-none" />
+                                        <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-blue-50 via-blue-50/70 to-transparent z-20 pointer-events-none" />
                                     )}
+                                    {/* Right fade + scroll hint */}
                                     {scrollShadow.right && (
-                                        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-20 pointer-events-none" />
+                                        <div className="absolute right-0 top-0 bottom-0 w-24 z-20 pointer-events-none flex items-center justify-end">
+                                            <div className="absolute inset-0 bg-gradient-to-l from-blue-50 via-blue-50/80 to-transparent" />
+                                            <span className="relative mr-3 flex items-center gap-1 text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-blue-100/90 border border-blue-200 pl-2.5 pr-1.5 py-1 rounded-lg shadow-[0_4px_12px_-4px_rgba(59,130,246,0.3)]">
+                                                scroll <ChevronRight size={14} className="animate-pulse" />
+                                            </span>
+                                        </div>
                                     )}
                                     <div ref={tableScrollRef} className="overflow-x-auto overflow-y-auto w-full h-full relative">
                                         {loading && (
@@ -828,86 +825,100 @@ export default function AdminDashboard() {
                                         {tableData && tableData.data.length > 0 ? (
                                             <table className="w-full min-w-max text-left">
                                                 <thead>
-                                                    <tr className="bg-slate-50 border-b-2 border-slate-200 sticky top-0 z-10">
-                                                        <th className="px-4 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400 w-10 text-center">#</th>
+                                                    <tr className="bg-gradient-to-r from-slate-100 to-slate-50 border-b-2 border-slate-200 sticky top-0 z-10">
+                                                        <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-12 text-center">#</th>
                                                         {tableData.fields.map((field) => (
                                                             <th
                                                                 key={field}
                                                                 onClick={() => handleSort(field)}
-                                                                className="px-4 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400 cursor-pointer hover:text-indigo-600 transition-colors select-none group whitespace-nowrap"
+                                                                className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer hover:text-indigo-600 hover:bg-indigo-50/50 transition-all select-none group whitespace-nowrap"
                                                             >
-                                                                <div className="flex items-center gap-1.5">
+                                                                <div className="flex items-center gap-2">
                                                                     {field.replace(/_/g, ' ')}
-                                                                    {sortBy === field ? (
-                                                                        sortOrder === 'asc' ? <ArrowUp size={11} className="text-indigo-500" /> : <ArrowDown size={11} className="text-indigo-500" />
-                                                                    ) : (
-                                                                        <ArrowUpDown size={11} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                                    )}
+                                                                    <span className={cn(
+                                                                        "transition-all",
+                                                                        sortBy === field ? "opacity-100" : "opacity-0 group-hover:opacity-60"
+                                                                    )}>
+                                                                        {sortBy === field ? (
+                                                                            sortOrder === 'asc' ? <ArrowUp size={11} className="text-indigo-500" /> : <ArrowDown size={11} className="text-indigo-500" />
+                                                                        ) : (
+                                                                            <ArrowUpDown size={11} className="text-slate-400" />
+                                                                        )}
+                                                                    </span>
                                                                 </div>
                                                             </th>
                                                         ))}
                                                         {!READ_ONLY_TABLES.some(t => t.toLowerCase() === selectedTable.toLowerCase()) && (
-                                                            <th className="px-4 py-3.5 text-right text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400 sticky right-0 bg-slate-50 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.04)] z-20">
+                                                            <th className="px-5 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500 sticky right-0 bg-gradient-to-l from-slate-100 to-slate-50 shadow-[-12px_0_20px_-8px_rgba(0,0,0,0.06)] z-20">
                                                                 Actions
                                                             </th>
                                                         )}
                                                     </tr>
                                                 </thead>
-                                                <tbody>
+                                                <tbody className="divide-y divide-slate-100">
                                                     {tableData.data.map((row, idx) => (
-                                                        <tr key={idx} className={cn(
-                                                            "border-b border-slate-100 hover:bg-indigo-50/50 transition-colors duration-150 group",
-                                                            idx % 2 === 1 && "bg-slate-50/40"
-                                                        )}>
-                                                            <td className="px-4 py-3 text-center">
-                                                                <span className="text-[11px] font-bold text-slate-300">{(isPaginated ? (currentPage - 1) * pageSize : 0) + idx + 1}</span>
+                                                        <tr key={idx} className="hover:bg-blue-50/40 transition-colors duration-100 group">
+                                                            <td className="px-5 py-3.5 text-center">
+                                                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-slate-100 text-[10px] font-black text-slate-400">
+                                                                    {(isPaginated ? (currentPage - 1) * pageSize : 0) + idx + 1}
+                                                                </span>
                                                             </td>
                                                             {tableData.fields.map((field) => {
                                                                 const meta = tableData.field_meta?.[field];
                                                                 const value = row[field];
+                                                                const isRatingField = field.toLowerCase().includes('rating') || field.toLowerCase().includes('q1') || field.toLowerCase().includes('q2') || field.toLowerCase().includes('q3') || field.toLowerCase().includes('q4') || field.toLowerCase().includes('q5') || field.toLowerCase().includes('q6') || field.toLowerCase().includes('q7') || field.toLowerCase().includes('q8') || field.toLowerCase().includes('q9') || field.toLowerCase().includes('q10');
+                                                                const numVal = Number(value);
 
                                                                 let content;
                                                                 if (meta?.type === 'boolean') {
                                                                     content = value ? (
-                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                                                            Active
+                                                                            Yes
                                                                         </span>
                                                                     ) : (
-                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-red-50 text-red-600 border border-red-200">
-                                                                            <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                                                                            Inactive
+                                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                                                                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                                                            No
                                                                         </span>
                                                                     );
-                                                                } else if (field.toLowerCase().includes('id') || field.toLowerCase().includes('code')) {
-                                                                    content = <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded">{String(value ?? '-')}</span>;
+                                                                } else if (isRatingField && !isNaN(numVal) && numVal >= 1 && numVal <= 5) {
+                                                                    const colors = ['', 'bg-red-100 text-red-700', 'bg-orange-100 text-orange-700', 'bg-yellow-100 text-yellow-700', 'bg-lime-100 text-lime-700', 'bg-emerald-100 text-emerald-700'];
+                                                                    content = (
+                                                                        <span className={cn("inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-black", colors[numVal] || 'bg-slate-100 text-slate-600')}>
+                                                                            {numVal}
+                                                                        </span>
+                                                                    );
+                                                                } else if (field === tableData.pk_field || field.toLowerCase().includes('code')) {
+                                                                    content = <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">{String(value ?? '—')}</span>;
+                                                                } else if (field.toLowerCase().includes('id') && !isNaN(numVal)) {
+                                                                    content = <span className="font-mono text-xs font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{String(value ?? '—')}</span>;
                                                                 } else {
-                                                                    content = <span className="text-slate-600">{String(value ?? '-')}</span>;
+                                                                    content = <span className="text-slate-700 text-sm font-medium">{String(value ?? '—')}</span>;
                                                                 }
 
                                                                 return (
-                                                                    <td key={field} className="px-4 py-3 text-sm align-middle max-w-[200px] truncate">
+                                                                    <td key={field} className="px-5 py-3.5 align-middle max-w-[220px] truncate">
                                                                         {content}
                                                                     </td>
                                                                 );
                                                             })}
-                                                            <td className="px-4 py-3 text-right sticky right-0 bg-white group-hover:bg-indigo-50/50 group-even:bg-slate-50/40 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.04)] align-middle z-10 transition-colors duration-150">
+                                                            <td className="px-4 py-3 text-right sticky right-0 bg-white group-hover:bg-blue-50/40 shadow-[-12px_0_20px_-10px_rgba(0,0,0,0.05)] align-middle z-10 transition-colors duration-100">
                                                                 {!READ_ONLY_TABLES.some(t => t.toLowerCase() === selectedTable.toLowerCase()) && (
-                                                                    <div className="flex justify-end gap-1.5">
+                                                                    <div className="flex justify-end gap-1">
                                                                         <button
                                                                             onClick={() => handleEdit(row)}
-                                                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 hover:border-indigo-200 transition-all active:scale-95"
                                                                             title="Edit"
+                                                                            className="p-2 rounded-lg text-indigo-500 hover:bg-indigo-100 hover:text-indigo-700 transition-all active:scale-90"
                                                                         >
-                                                                            <Edit size={12} />
-                                                                            Edit
+                                                                            <Edit size={14} />
                                                                         </button>
                                                                         <button
                                                                             onClick={() => setDeleteConfirm(row)}
-                                                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 hover:border-red-200 transition-all active:scale-95"
                                                                             title="Delete"
+                                                                            className="p-2 rounded-lg text-red-400 hover:bg-red-100 hover:text-red-600 transition-all active:scale-90"
                                                                         >
-                                                                            <Trash2 size={12} />
+                                                                            <Trash2 size={14} />
                                                                         </button>
                                                                     </div>
                                                                 )}
@@ -917,9 +928,12 @@ export default function AdminDashboard() {
                                                 </tbody>
                                             </table>
                                         ) : !loading && (
-                                            <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                                                <Database size={48} className="mb-4 opacity-20" />
-                                                <p className="font-medium">No records found</p>
+                                            <div className="flex flex-col items-center justify-center h-64">
+                                                <div className="h-16 w-16 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mb-4">
+                                                    <Database size={28} className="text-slate-300" />
+                                                </div>
+                                                <p className="font-bold text-slate-400">No records found</p>
+                                                <p className="text-xs text-slate-300 mt-1">Try adjusting your search or filters</p>
                                             </div>
                                         )}
                                     </div>

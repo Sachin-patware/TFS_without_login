@@ -19,6 +19,7 @@ urlpatterns = [
     path("dashboard-admin/table/<str:table_name>/<str:row_id>/delete/", feedback_views.admin_delete_row, name='admin_delete_row'),
     path("dashboard-admin/access-token/", feedback_views.admin_get_token, name='admin_get_token'),
     path("dashboard-admin/access-token/update/", feedback_views.admin_update_token, name='admin_update_token'),
-# Admin Report Endpoint
+    # Admin Report Endpoint
     path("dashboard-admin/reports/teacher-performance/", feedback_views.admin_teacher_report, name='admin_teacher_report'),
+    path("dashboard-admin/generate-signature/", feedback_views.admin_generate_signature, name='admin_generate_signature'),
 ]

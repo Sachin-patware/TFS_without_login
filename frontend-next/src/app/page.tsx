@@ -161,6 +161,7 @@ function LoginContent() {
           semester: parseInt(semester),
           section: parseInt(section),
           token: tokenFromUrl,
+          sig: searchParams.get('sig') || '',
           fingerprint: fingerprint
         }),
       });

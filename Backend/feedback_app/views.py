@@ -5,6 +5,7 @@ from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.core.signing import Signer, BadSignature
 import json
 import random
 import string
@@ -68,6 +69,23 @@ def login(request):
     # Security Check: Verify Access Token
     if token_provided != CURRENT_ACCESS_TOKEN:
         return JsonResponse({'status': 'error', 'error': 'Invalid access token'}, status=403)
+
+    # Advanced Link Security: Verify Signature if advanced params are present
+    # If any class parameter is provided, we REQUIRE a valid signature to prevent manipulation
+    has_advanced_params = any([branch_raw, year_raw, semester_raw, section_raw])
+    if has_advanced_params:
+        sig = payload.get('sig')
+        if not sig:
+            return JsonResponse({'status': 'error', 'error': 'Security signature missing for advanced link'}, status=403)
+        
+        signer = Signer(sep=':')
+        try:
+            # Reconstruct the string that was signed: "branch|year|semester|section"
+            # Note: order and format must match the generator
+            expected_data = f"{branch_raw}|{year_raw}|{semester_raw}|{section_raw}"
+            signer.unsign(f"{expected_data}:{sig}")
+        except BadSignature:
+            return JsonResponse({'status': 'error', 'error': 'Invalid security signature. URL may have been tampered with.'}, status=403)
 
     # validate inputs via serializer (Django Form)
     serializer = LoginSerializer(data={
@@ -1015,3 +1033,33 @@ def admin_teacher_report(request):
         })
     except Exception as e:
         return JsonResponse({'status': 'error', 'error': str(e)}, status=500)
+@csrf_exempt
+@require_POST
+@jwt_admin_required
+def admin_generate_signature(request):
+    """Generate a cryptographic signature for a class link to prevent tampering"""
+    try:
+        payload = json.loads(request.body)
+        branch = payload.get('branch', '')
+        year = str(payload.get('year', ''))
+        semester = str(payload.get('semester', ''))
+        section = str(payload.get('section', ''))
+
+        if not all([branch, year, semester, section]):
+            return JsonResponse({"status": "error", "error": "Missing class parameters"}, status=400)
+
+        # Create a stable string to sign
+        data_to_sign = f"{branch}|{year}|{semester}|{section}"
+        
+        signer = Signer(sep=':')
+        signed_value = signer.sign(data_to_sign)
+        
+        # Extract the signature part (the part after the separator)
+        signature = signed_value.split(':')[-1]
+
+        return JsonResponse({
+            "status": "ok",
+            "signature": signature
+        })
+    except Exception as e:
+        return JsonResponse({"status": "error", "error": str(e)}, status=500)

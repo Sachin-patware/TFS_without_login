@@ -318,16 +318,41 @@ export default function AdminDashboard() {
         showToast("Student login link copied!", "info");
     };
 
-    const copyAdvancedLink = () => {
-        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-        let link = `${baseUrl}/?token=${studentToken}`;
-        if (genBranch) link += `&branch=${genBranch}`;
-        if (genYear) link += `&year=${genYear}`;
-        if (genSem) link += `&semester=${genSem}`;
-        if (genSection) link += `&section=${genSection}`;
+    const copyAdvancedLink = async () => {
+        if (!genBranch || !genYear || !genSem || !genSection) {
+            showToast("Please select all class fields first", "error");
+            return;
+        }
 
-        navigator.clipboard.writeText(link);
-        showToast("Advanced class link copied!", "info");
+        try {
+            const res = await apiFetch('/dashboard-admin/generate-signature/', {
+                method: 'POST',
+                body: JSON.stringify({
+                    branch: genBranch,
+                    year: genYear,
+                    semester: genSem,
+                    section: genSection
+                })
+            });
+            const data = await res.json();
+            
+            if (data.status === 'ok') {
+                const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                let link = `${baseUrl}/?token=${studentToken}`;
+                link += `&branch=${genBranch}`;
+                link += `&year=${genYear}`;
+                link += `&semester=${genSem}`;
+                link += `&section=${genSection}`;
+                link += `&sig=${data.signature}`;
+
+                navigator.clipboard.writeText(link);
+                showToast("Signed advanced link copied!", "success");
+            } else {
+                showToast(data.error || "Failed to generate signature", "error");
+            }
+        } catch (error) {
+            showToast("Server error generating signature", "error");
+        }
     };
 
     // Debounce search query

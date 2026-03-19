@@ -73,7 +73,7 @@ export default function DashboardPage() {
     }, [allTeachers]);
 
     const scrollBy = (dir: 'left' | 'right') => {
-        scrollRef.current?.scrollBy({ left: dir === 'right' ? 380 : -380, behavior: 'smooth' });
+        scrollRef.current?.scrollBy({ left: dir === 'right' ? 300 : -300, behavior: 'smooth' });
     };
 
     const fetchTeachers = async () => {
@@ -236,213 +236,173 @@ export default function DashboardPage() {
             ) : (
                 <>
                     {/* Progress Summary Bar */}
-                    <div className="max-w-5xl mx-auto mb-6 px-2">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-bold text-gray-500">
-                                {totalRated} / {pendingTeachers.length} teachers fully rated
-                            </span>
-                            <span className="text-sm font-bold text-blue-600">
-                                {Math.round((totalRated / pendingTeachers.length) * 100)}%
+                    <div className="max-w-7xl mx-auto mb-8 px-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                                    <Star className="w-4 h-4 text-blue-600 fill-blue-600" />
+                                </div>
+                                <span className="text-sm font-bold text-gray-700">
+                                    {totalRated} / {pendingTeachers.length} <span className="text-gray-400 font-medium">Teachers fully rated</span>
+                                </span>
+                            </div>
+                            <span className="text-sm font-extrabold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                                {Math.round((totalRated / pendingTeachers.length) * 100)}% Complete
                             </span>
                         </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
                             <motion.div
-                                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
+                                className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 rounded-full"
                                 initial={{ width: 0 }}
                                 animate={{ width: `${(totalRated / pendingTeachers.length) * 100}%` }}
-                                transition={{ type: 'spring', stiffness: 80 }}
+                                transition={{ type: 'spring', stiffness: 80, damping: 15 }}
                             />
                         </div>
                     </div>
 
-                    {/* Scroll Container */}
-                    <div className="relative">
-                        {/* Left Arrow */}
-                        <AnimatePresence>
-                            {canScrollLeft && (
-                                <motion.button
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.8 }}
-                                    onClick={() => scrollBy('left')}
-                                    className="absolute left-0 top-1/2 -translate-y-1/2 z-20 -translate-x-1 bg-white border border-gray-200 shadow-xl rounded-2xl p-3 text-gray-700 hover:text-blue-600 hover:border-blue-200 transition-all"
-                                >
-                                    <ChevronLeft size={22} />
-                                </motion.button>
-                            )}
-                        </AnimatePresence>
-
-                        {/* Right Arrow */}
-                        <AnimatePresence>
-                            {canScrollRight && (
-                                <motion.button
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.8 }}
-                                    onClick={() => scrollBy('right')}
-                                    className="absolute right-0 top-1/2 -translate-y-1/2 z-20 translate-x-1 bg-white border border-gray-200 shadow-xl rounded-2xl p-3 text-gray-700 hover:text-blue-600 hover:border-blue-200 transition-all"
-                                >
-                                    <ChevronRight size={22} />
-                                </motion.button>
-                            )}
-                        </AnimatePresence>
-
-                        {/* Fade edges */}
-                        {canScrollLeft && (
-                            <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white/90 to-transparent z-10 pointer-events-none rounded-l-3xl" />
-                        )}
-                        {canScrollRight && (
-                            <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white/90 to-transparent z-10 pointer-events-none rounded-r-3xl" />
-                        )}
-
-                        {/* Scrollable Row */}
-                        <div
-                            ref={scrollRef}
-                            className="flex gap-5 overflow-x-auto pb-4 px-2 scroll-smooth"
-                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                        >
-                            {pendingTeachers.map((teacher, idx) => {
-                                const progress = getProgress(teacher.allocation_id);
-                                const isComplete = progress === 10;
-
-                                return (
-                                    <motion.div
-                                        key={teacher.allocation_id}
-                                        initial={{ opacity: 0, y: 24 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: idx * 0.07, type: 'spring', stiffness: 100 }}
-                                        className="flex-shrink-0 w-[360px] bg-white rounded-3xl border border-gray-100 shadow-[0_8px_30px_-8px_rgba(0,0,0,0.1)] overflow-hidden flex flex-col"
-                                        style={{ minHeight: '520px' }}
-                                    >
-                                        {/* Card Header */}
-                                        <div className={cn(
-                                            "px-6 pt-6 pb-4 border-b border-gray-50",
-                                            isComplete ? "bg-gradient-to-br from-blue-50 to-indigo-50" : "bg-slate-50/60"
-                                        )}>
+                    <div className="max-w-[1400px] mx-auto px-4">
+                        <div className="relative bg-white rounded-[2rem] border border-gray-100 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col md:flex-row min-h-[700px]">
+                            {/* Left Column: Fixed Questions */}
+                            <div className="w-[340px] flex-shrink-0 bg-slate-50/50 border-r border-gray-100 hidden md:flex flex-col">
+                                {/* Fixed Sidebar Header Spacer */}
+                                <div className="h-[180px] p-8 flex flex-col justify-end border-b border-gray-100/50">
+                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Feedback Criteria</h4>
+                                    <p className="text-[13px] text-gray-500 font-medium leading-relaxed">Please rate each teacher based on the parameters listed below.</p>
+                                </div>
+                                
+                                {/* Question Labels */}
+                                <div className="flex-1 py-4">
+                                    {FEEDBACK_QUESTIONS.map((q, idx) => (
+                                        <div key={q.key} className="h-16 px-8 flex items-center border-b border-transparent">
                                             <div className="flex items-start gap-4">
-                                                {/* Avatar */}
-                                                <div className={cn(
-                                                    "h-14 w-14 rounded-2xl flex items-center justify-center font-extrabold text-xl flex-shrink-0 shadow-sm",
-                                                    isComplete
-                                                        ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-blue-200"
-                                                        : "bg-white border border-gray-100 text-blue-600"
-                                                )}>
-                                                    {teacher.teacher_name.charAt(0)}
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <h3 className="text-base font-bold text-gray-900 leading-tight truncate">{teacher.teacher_name}</h3>
-                                                    <p className="text-blue-600 font-semibold text-sm mt-0.5 truncate">{teacher.subject_name}</p>
-                                                    <span className="inline-block mt-1.5 px-2 py-0.5 bg-gray-200/60 text-gray-500 rounded-md text-[11px] font-bold uppercase tracking-wider">{teacher.subject_code}</span>
-                                                </div>
-                                                {isComplete && (
-                                                    <div className="flex-shrink-0">
-                                                        <CheckCircle2 className="text-blue-500" size={22} />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Progress */}
-                                            <div className="mt-4">
-                                                <div className="flex items-center justify-between mb-1.5">
-                                                    <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">{progress}/10 Completed</span>
-                                                    <span className={cn(
-                                                        "text-[11px] font-black uppercase tracking-wider",
-                                                        isComplete ? "text-blue-500" : "text-gray-300"
-                                                    )}>
-                                                        {isComplete ? "✓ Done" : `${10 - progress} left`}
-                                                    </span>
-                                                </div>
-                                                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                    <motion.div
-                                                        className={cn(
-                                                            "h-full rounded-full",
-                                                            isComplete
-                                                                ? "bg-gradient-to-r from-blue-500 to-indigo-500"
-                                                                : "bg-blue-400"
-                                                        )}
-                                                        initial={{ width: 0 }}
-                                                        animate={{ width: `${(progress / 10) * 100}%` }}
-                                                        transition={{ type: 'spring', stiffness: 80 }}
-                                                    />
-                                                </div>
+                                                <span className="flex-shrink-0 h-6 w-6 rounded-lg bg-white border border-gray-200 text-blue-600 text-[11px] font-black flex items-center justify-center shadow-sm">
+                                                    {(idx + 1).toString().padStart(2, '0')}
+                                                </span>
+                                                <p className="text-gray-700 text-[13px] font-semibold leading-snug line-clamp-2">
+                                                    {q.label}
+                                                </p>
                                             </div>
                                         </div>
+                                    ))}
+                                </div>
+                            </div>
 
-                                        {/* Questions — scrollable vertically */}
-                                        <div className="flex-1 overflow-y-auto p-4 space-y-2"
-                                            style={{ scrollbarWidth: 'thin', scrollbarColor: '#e2e8f0 transparent' }}>
-                                            {FEEDBACK_QUESTIONS.map((q, qIdx) => {
-                                                const currentVal = feedbacks[teacher.allocation_id]?.ratings[q.key] || 0;
-                                                return (
-                                                    <div
-                                                        key={q.key}
-                                                        className={cn(
-                                                            "rounded-2xl border p-3 transition-all",
-                                                            currentVal > 0
-                                                                ? "border-blue-100 bg-blue-50/40"
-                                                                : "border-gray-100 bg-slate-50/40 hover:border-gray-200"
-                                                        )}
-                                                    >
-                                                        <div className="flex items-start justify-between gap-3">
-                                                            {/* Question number + label */}
-                                                            <div className="flex items-start gap-2 min-w-0">
-                                                                <span className="flex-shrink-0 h-5 w-5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-black flex items-center justify-center mt-0.5">
-                                                                    {qIdx + 1}
-                                                                </span>
-                                                                <p className="text-gray-700 text-[12px] font-semibold leading-snug break-words">
-                                                                    {q.label}
-                                                                </p>
-                                                            </div>
-                                                            {/* Stars */}
-                                                            <div className="flex items-center gap-0.5 flex-shrink-0">
-                                                                {[1, 2, 3, 4, 5].map((star) => (
-                                                                    <button
-                                                                        key={star}
-                                                                        type="button"
-                                                                        onClick={() => handleRatingChange(teacher.allocation_id, q.key, star)}
-                                                                        className={cn(
-                                                                            "transition-all focus:outline-none active:scale-90",
-                                                                            currentVal >= star
-                                                                                ? "text-amber-400 scale-105"
-                                                                                : "text-gray-200 hover:text-amber-200"
-                                                                        )}
-                                                                    >
-                                                                        <Star
-                                                                            size={18}
-                                                                            fill={currentVal >= star ? "currentColor" : "none"}
-                                                                            strokeWidth={currentVal >= star ? 0 : 1.5}
-                                                                        />
-                                                                    </button>
-                                                                ))}
-                                                            </div>
+                            {/* Right Column: Scrollable Teachers */}
+                            <div className="flex-1 relative overflow-hidden flex flex-col">
+                                {/* Navigation Arrows (Floating) */}
+                                <AnimatePresence>
+                                    {canScrollLeft && (
+                                        <motion.button
+                                            initial={{ opacity: 0, x: 10 }}
+                                            animate={{ opacity: 1, x: 20 }}
+                                            exit={{ opacity: 0, x: 10 }}
+                                            onClick={() => scrollBy('left')}
+                                            className="absolute left-0 top-[90px] -translate-y-1/2 z-30 bg-white border border-gray-200 shadow-2xl rounded-2xl p-4 text-gray-700 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-90"
+                                        >
+                                            <ChevronLeft size={24} />
+                                        </motion.button>
+                                    )}
+                                </AnimatePresence>
+
+                                <AnimatePresence>
+                                    {canScrollRight && (
+                                        <motion.button
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: -20 }}
+                                            exit={{ opacity: 0, x: -10 }}
+                                            onClick={() => scrollBy('right')}
+                                            className="absolute right-0 top-[90px] -translate-y-1/2 z-30 bg-white border border-gray-200 shadow-2xl rounded-2xl p-4 text-gray-700 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-90"
+                                        >
+                                            <ChevronRight size={24} />
+                                        </motion.button>
+                                    )}
+                                </AnimatePresence>
+
+                                {/* Teacher Scroll Row */}
+                                <div
+                                    ref={scrollRef}
+                                    className="flex overflow-x-auto scroll-smooth"
+                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                >
+                                    {pendingTeachers.map((teacher, idx) => {
+                                        const progress = getProgress(teacher.allocation_id);
+                                        const isComplete = progress === 10;
+                                        
+                                        return (
+                                            <div key={teacher.allocation_id} className="flex-shrink-0 w-[300px] border-r border-gray-100 last:border-r-0 flex flex-col group">
+                                                {/* Teacher Card Header (Sticky part for this column) */}
+                                                <div className={cn(
+                                                    "h-[180px] p-6 flex flex-col items-center text-center transition-colors border-b border-gray-100",
+                                                    isComplete ? "bg-blue-50/30" : "bg-white group-hover:bg-slate-50/50"
+                                                )}>
+                                                    <div className={cn(
+                                                        "h-16 w-16 rounded-[1.25rem] flex items-center justify-center font-black text-2xl mb-3 shadow-md transition-transform group-hover:scale-105",
+                                                        isComplete
+                                                            ? "bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200"
+                                                            : "bg-white border-2 border-slate-100 text-blue-600"
+                                                    )}>
+                                                        {teacher.teacher_name.charAt(0)}
+                                                    </div>
+                                                    <h3 className="text-[15px] font-bold text-gray-900 leading-tight line-clamp-1 w-full">{teacher.teacher_name}</h3>
+                                                    <p className="text-blue-600 font-semibold text-[12px] mt-1 line-clamp-1 w-full px-2">{teacher.subject_name}</p>
+                                                    <div className="mt-3 w-full max-w-[120px]">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{progress}/10</span>
+                                                            {isComplete && <CheckCircle2 size={12} className="text-blue-600" />}
+                                                        </div>
+                                                        <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className={cn("h-full transition-all duration-500", isComplete ? "bg-blue-600" : "bg-blue-400")}
+                                                                style={{ width: `${(progress / 10) * 100}%` }}
+                                                            />
                                                         </div>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
+                                                </div>
+
+                                                {/* Star Ratings Column */}
+                                                <div className="flex-1 py-4">
+                                                    {FEEDBACK_QUESTIONS.map((q) => {
+                                                        const currentVal = feedbacks[teacher.allocation_id]?.ratings[q.key] || 0;
+                                                        return (
+                                                            <div key={q.key} className="h-16 flex items-center justify-center border-b border-gray-50/50 last:border-b-0 px-4">
+                                                                <div className="flex flex-col items-center">
+                                                                    {/* Mobile Question Label (Hidden on Desktop) */}
+                                                                    <p className="md:hidden text-[11px] text-gray-500 font-bold mb-2 text-center line-clamp-1">{q.label}</p>
+                                                                    
+                                                                    <div className="flex items-center gap-1">
+                                                                        {[1, 2, 3, 4, 5].map((star) => (
+                                                                            <button
+                                                                                key={star}
+                                                                                type="button"
+                                                                                onClick={() => handleRatingChange(teacher.allocation_id, q.key, star)}
+                                                                                className={cn(
+                                                                                    "transition-all duration-200 focus:outline-none active:scale-75",
+                                                                                    currentVal >= star
+                                                                                        ? "text-amber-400"
+                                                                                        : "text-slate-200 hover:text-amber-200"
+                                                                                )}
+                                                                            >
+                                                                                <Star
+                                                                                    size={20}
+                                                                                    fill={currentVal >= star ? "currentColor" : "none"}
+                                                                                    className={cn(currentVal >= star ? "drop-shadow-sm" : "")}
+                                                                                    strokeWidth={currentVal >= star ? 0.5 : 1.5}
+                                                                                />
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     </div>
-
-                    {/* Dot Indicators */}
-                    {pendingTeachers.length > 1 && (
-                        <div className="flex justify-center gap-2 mt-4">
-                            {pendingTeachers.map((teacher) => {
-                                const prog = getProgress(teacher.allocation_id);
-                                return (
-                                    <div
-                                        key={teacher.allocation_id}
-                                        className={cn(
-                                            "h-2 rounded-full transition-all",
-                                            prog === 10 ? "w-6 bg-blue-500" : "w-2 bg-gray-200"
-                                        )}
-                                    />
-                                );
-                            })}
-                        </div>
-                    )}
                 </>
             )}
 

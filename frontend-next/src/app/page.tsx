@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Lock, Calendar, ShieldCheck, ArrowRight, Laptop, GraduationCap, Loader2 } from 'lucide-react';
+import { User, Lock, Calendar, ShieldCheck, ArrowRight, Laptop, GraduationCap, Loader2, Eye, EyeOff } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -23,6 +23,7 @@ function LoginContent() {
   const router = useRouter();
   const [role, setRole] = useState<'student' | 'admin'>('student');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Student Fields
   const [branch, setBranch] = useState('');
@@ -214,15 +215,17 @@ function LoginContent() {
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative lg:w-1/2 flex flex-col justify-center px-8 lg:px-24 pb-28 pt-24 z-10"
+        className="relative lg:w-1/2 flex flex-col justify-center px-8 lg:px-24 pb-24 pt-20 z-10"
       >
-        <div className="mb-12 flex items-center gap-4">
-          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg p-2">
-            <Image src="/images/IT dept.png" alt="Logo" width={40} height={40} className="object-contain" />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold tracking-tight text-white">IT Department</h3>
-            <p className="text-sm text-slate-400 font-medium">ACROPOLIS INSTITUTE OF TECHNOLOGY & RESEARCH</p>
+        <div className="mb-14">
+          <div className="bg-white inline-block px-6 py-4 rounded-3xl shadow-xl shadow-white/5 ring-1 ring-white/10">
+            <Image 
+                src="/images/AITR-logo.jpg" 
+                alt="AITR Logo" 
+                width={200} 
+                height={60} 
+                className="object-contain" 
+            />
           </div>
         </div>
 
@@ -234,15 +237,15 @@ function LoginContent() {
         </p>
 
         <div className="grid grid-cols-2 gap-6 max-w-md">
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-            <ShieldCheck className="text-blue-400 mb-3" size={24} />
-            <h4 className="font-bold text-white mb-1">Secure</h4>
-            <p className="text-xs text-slate-400">Your feedback is anonymous and encrypted.</p>
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
+            <ShieldCheck className="text-blue-400 mb-4" size={28} />
+            <h4 className="font-bold text-white mb-2 text-lg">Secure</h4>
+            <p className="text-sm text-slate-400">Your feedback is anonymous and safely encrypted.</p>
           </div>
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-            <Laptop className="text-indigo-400 mb-3" size={24} />
-            <h4 className="font-bold text-white mb-1">Easy Access</h4>
-            <p className="text-xs text-slate-400">Provide feedback anytime, anywhere.</p>
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
+            <Laptop className="text-indigo-400 mb-4" size={28} />
+            <h4 className="font-bold text-white mb-2 text-lg">Easy Access</h4>
+            <p className="text-sm text-slate-400">Provide your valuable insights anytime, anywhere.</p>
           </div>
         </div>
       </motion.div>
@@ -389,11 +392,20 @@ function LoginContent() {
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-300 ml-1">Password</label>
                       <Input
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         placeholder="Enter Password"
                         value={dob}
                         onChange={(e) => setDob(e.target.value)}
                         icon={<Lock size={18} />}
+                        rightElement={
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="p-1 focus:outline-none flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity"
+                          >
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
+                        }
                         className="focus:border-blue-500/50"
                         required
                       />
@@ -418,7 +430,7 @@ function LoginContent() {
           </AnimatePresence>
 
           <p className="text-center text-slate-500 text-xs mt-10">
-            &copy; {new Date().getFullYear()} IT Department Portal. All rights reserved.
+            &copy; {new Date().getFullYear()} AITR feedback Portal. All rights reserved.
           </p>
         </motion.div>
       </div>

@@ -5,7 +5,11 @@ Django==5.1.7
 djangorestframework==3.16.0
 
 # Database Driver for PostgreSQL (Modern Psycopg 3)
-psycopg[binary]==3.2.4
+# psycopg[binary]==3.2.4
+
+# Database Driver for MS SQL Server
+mssql-django==1.5
+pyodbc==5.2.0
 
 # Production WSGI Server
 gunicorn==23.0.0

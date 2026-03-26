@@ -3,9 +3,9 @@ from django.core.validators import MaxLengthValidator
 
 class Faculty_Teacher(models.Model):
     TeacherID = models.CharField(
-        max_length=10,
+        max_length=50,
         primary_key=True,
-        validators=[MaxLengthValidator(10)],
+        validators=[MaxLengthValidator(50)],
         verbose_name="Teacher ID"
     )
     FullName = models.CharField(max_length=255)

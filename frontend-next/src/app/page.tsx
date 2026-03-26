@@ -131,6 +131,8 @@ function LoginContent() {
           if (typeof window !== 'undefined') {
             localStorage.setItem("access_token", data.access);
             localStorage.setItem("admin_username", data.username);
+            localStorage.setItem("user_role", data.role);
+            localStorage.setItem("user_branches", JSON.stringify(data.branches || []));
             localStorage.setItem("is_admin", "true");
           }
           showToast("Admin Login Successful! Redirecting...", "success");

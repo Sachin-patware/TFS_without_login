@@ -1,6 +1,7 @@
 "use client"
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Database, Loader2, AlertCircle, Edit, Trash2, ChevronLeft, ChevronRight, Search, X, Save, ArrowUpDown, ArrowUp, ArrowDown, Copy, RefreshCw, Key, Link, BarChart3, TableProperties, Plus, Shield, User, BookText, Briefcase, Calendar, School, Hash, GraduationCap, ClipboardEdit } from 'lucide-react';
+import { Database, Loader2, AlertCircle, Edit, Trash2, ChevronLeft, ChevronRight, Search, X, Save, ArrowUpDown, ArrowUp, ArrowDown, Copy, RefreshCw, Key, Link, BarChart3, TableProperties, Plus, Shield, User, BookText, Briefcase, Calendar, School, Hash, GraduationCap, ClipboardEdit, Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import API_BASE_URL from '@/config';
 import { apiFetch } from '@/lib/api';
 import { Toast, ToastType } from '@/components/ui/Toast';
@@ -55,14 +56,22 @@ const getFieldIcon = (field: string) => {
     return <ClipboardEdit size={16} className="text-slate-400" />;
 };
 
-const renderInput = (
+const RenderInputInner = ({
+    field,
+    value,
+    onChange,
+    isPk,
+    tableData,
+    allData = {}
+}: {
     field: string,
     value: any,
     onChange: (val: any) => void,
     isPk: boolean,
     tableData: TableData | null,
-    allData: any = {}
-) => {
+    allData?: any
+}) => {
+    const [showPassword, setShowPassword] = useState(false);
     if (!tableData) return null;
 
     const meta = tableData.field_meta?.[field] || { type: 'text', required: false, is_auto: false, choices: [] };
@@ -97,7 +106,7 @@ const renderInput = (
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 transition-colors group-focus-within:text-indigo-600">
                         {getFieldIcon(field)}
                     </div>
-                    <SelectTrigger className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-semibold text-sm shadow-sm hover:border-slate-300 h-auto">
+                    <SelectTrigger className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-semibold text-sm shadow-sm hover:border-slate-300 h-auto">
                         <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                 </div>
@@ -130,7 +139,7 @@ const renderInput = (
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 transition-colors group-focus-within:text-indigo-600">
                         <Shield size={16} className="text-emerald-500" />
                     </div>
-                    <SelectTrigger className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-semibold text-sm shadow-sm hover:border-slate-300 h-auto">
+                    <SelectTrigger className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-semibold text-sm shadow-sm hover:border-slate-300 h-auto">
                         <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                 </div>
@@ -149,13 +158,65 @@ const renderInput = (
         );
     }
 
+    if (meta.type === 'multi-select' || field === 'branches') {
+        const selectedValues = Array.isArray(value) ? value : [];
+        return (
+            <div className="border border-slate-200 rounded-xl bg-white p-4 max-h-48 overflow-y-auto custom-scrollbar shadow-sm">
+                <div className="grid grid-cols-2 gap-y-3 gap-x-6">
+                    {choices.map((c: any) => {
+                        const isChecked = selectedValues.includes(c.value);
+                        return (
+                            <label 
+                                key={c.value} 
+                                className="flex items-center gap-3 cursor-pointer group"
+                            >
+                                <div className={cn(
+                                    "w-5 h-5 rounded border flex items-center justify-center transition-all",
+                                    isChecked ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white border-slate-300 group-hover:border-slate-400"
+                                )}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                            let next;
+                                            if (e.target.checked) {
+                                                next = [...selectedValues, c.value];
+                                            } else {
+                                                next = selectedValues.filter((v: any) => v !== c.value);
+                                            }
+                                            onChange(next);
+                                        }}
+                                        className="sr-only"
+                                    />
+                                    {isChecked && (
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    )}
+                                </div>
+                                <span className={cn(
+                                    "text-xs font-bold transition-colors",
+                                    isChecked ? "text-indigo-700 font-extrabold" : "text-slate-600"
+                                )}>
+                                    {c.label}
+                                </span>
+                            </label>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    const isPasswordField = field.toLowerCase() === 'password';
+
     return (
         <div className="relative group">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors group-focus-within:text-indigo-600">
-                {getFieldIcon(field)}
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors group-focus-within:text-indigo-600 z-10">
+                {isPasswordField ? <Key size={16} className="text-amber-500" /> : getFieldIcon(field)}
             </div>
             <input
-                type={meta.type === 'number' ? 'number' : meta.type === 'date' ? 'date' : 'text'}
+                type={isPasswordField ? (showPassword ? 'text' : 'password') : (meta.type === 'number' ? 'number' : meta.type === 'date' ? 'date' : 'text')}
                 value={value ?? ''}
                 onChange={(e) => {
                     const val = e.target.value;
@@ -163,13 +224,23 @@ const renderInput = (
                 }}
                 disabled={isPk && (meta.is_auto ?? false)}
                 placeholder={isPk && (meta.is_auto ?? false) ? '(Auto)' : meta.type === 'date' ? "YYYY-MM-DD" : `Enter ${formatLabel(field)}...`}
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400 transition-all font-semibold text-sm placeholder:text-slate-400 placeholder:font-medium shadow-sm hover:border-slate-300"
+                className="w-full pl-10 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400 transition-all font-semibold text-sm placeholder:text-slate-400 placeholder:font-medium shadow-sm hover:border-slate-300"
             />
+            {isPasswordField && (
+                <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all z-20"
+                >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+            )}
         </div>
     );
 };
 
 export default function AdminDashboard() {
+    const router = useRouter();
     const [tables, setTables] = useState<Table[]>([]);
     const [selectedTable, setSelectedTable] = useState<string>('');
     const [tableData, setTableData] = useState<TableData | null>(null);
@@ -182,6 +253,9 @@ export default function AdminDashboard() {
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [searchQuery, setSearchQuery] = useState('');
     const [isPaginated, setIsPaginated] = useState(true);
+    const [userRole, setUserRole] = useState<string>('admin');
+    const [userBranches, setUserBranches] = useState<string[]>([]);
+
 
     // Horizontal scroll shadow indicators
     const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -259,6 +333,19 @@ export default function AdminDashboard() {
         visible: false,
     });
 
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const role = localStorage.getItem('user_role');
+            const branchesRaw = localStorage.getItem('user_branches');
+            if (role) {
+                setUserRole(role);
+                if (branchesRaw) {
+                    try { setUserBranches(JSON.parse(branchesRaw)); } catch(e) { setUserBranches([]); }
+                }
+            }
+        }
+    }, []);
+
     const showToast = (msg: string, type: ToastType) => {
         setToast({ msg, type, visible: true });
     };
@@ -335,7 +422,7 @@ export default function AdminDashboard() {
                 })
             });
             const data = await res.json();
-            
+
             if (data.status === 'ok') {
                 const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
                 let link = `${baseUrl}/?token=${studentToken}`;
@@ -354,6 +441,7 @@ export default function AdminDashboard() {
             showToast("Server error generating signature", "error");
         }
     };
+
 
     // Debounce search query
     useEffect(() => {
@@ -575,31 +663,36 @@ export default function AdminDashboard() {
                             <div>
                                 <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Current Token</label>
                                 <div className="flex gap-3">
-                                    <div className="relative flex-1">
-                                        <input
-                                            type="text"
-                                            value={studentToken}
-                                            onChange={(e) => setStudentToken(e.target.value)}
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                                        />
-                                        {isUpdatingToken && <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />}
+                                            <div className="relative flex-1">
+                                                <input
+                                                    type="text"
+                                                    value={studentToken}
+                                                    onChange={(e) => setStudentToken(e.target.value)}
+                                                    disabled={userRole !== 'admin' && userRole !== 'hod'}
+                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all disabled:opacity-75 disabled:cursor-not-allowed"
+                                                />
+                                                {isUpdatingToken && <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />}
+                                            </div>
+                                            {(userRole === 'admin' || userRole === 'hod') && (
+                                                <button
+                                                    onClick={generateRandomToken}
+                                                    className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all shadow-sm hover:shadow-md"
+                                                    title="Generate Random"
+                                                >
+                                                    <RefreshCw size={18} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                    <button
-                                        onClick={generateRandomToken}
-                                        className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all shadow-sm hover:shadow-md"
-                                        title="Generate Random"
-                                    >
-                                        <RefreshCw size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => updateAccessToken()}
-                                disabled={isUpdatingToken}
-                                className="w-full py-3 text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl hover:from-indigo-700 hover:to-indigo-800 shadow-lg shadow-indigo-200/50 transition-all active:scale-[0.98] disabled:opacity-50"
-                            >
-                                {isUpdatingToken ? 'Saving...' : 'Save Token'}
-                            </button>
+                                    {(userRole === 'admin' || userRole === 'hod') && (
+                                        <button
+                                            onClick={() => updateAccessToken()}
+                                            disabled={isUpdatingToken}
+                                            className="w-full py-3 text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl hover:from-indigo-700 hover:to-indigo-800 shadow-lg shadow-indigo-200/50 transition-all active:scale-[0.98] disabled:opacity-50"
+                                        >
+                                            {isUpdatingToken ? 'Saving...' : 'Save Token'}
+                                        </button>
+                                    )}
                             <div className="pt-4 border-t border-slate-100">
                                 <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Quick Copy — Basic Link</label>
                                 <button
@@ -633,15 +726,11 @@ export default function AdminDashboard() {
                                             <SelectValue placeholder="Branch" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-white border-slate-200 shadow-xl">
-                                            <SelectItem value="CS">CS</SelectItem>
-                                            <SelectItem value="IT">IT</SelectItem>
-                                            <SelectItem value="DS">DS</SelectItem>
-                                            <SelectItem value="AIML">AIML</SelectItem>
-                                            <SelectItem value="CY">CY</SelectItem>
-                                            <SelectItem value="CSIT">CSIT</SelectItem>
-                                            <SelectItem value="EC">EC</SelectItem>
-                                            <SelectItem value="CIVIL">CIVIL</SelectItem>
-                                            <SelectItem value="MECHANICAL">MECHANICAL</SelectItem>
+                                            {[
+                                                'CS', 'IT', 'DS', 'AIML', 'CY', 'CSIT', 'EC', 'CIVIL', 'MECHANICAL'
+                                            ].filter(b => userRole === 'admin' || userBranches.includes(b)).map(b => (
+                                                <SelectItem key={b} value={b}>{b}</SelectItem>
+                                            ))}
 
                                         </SelectContent>
                                     </Select>
@@ -712,9 +801,9 @@ export default function AdminDashboard() {
             {activeTab === 'tables' && (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-                    {/* Sidebar: Table Selection (no more Access Control) */}
-                    <div className="lg:col-span-3 space-y-6">
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden sticky top-24 hover:shadow-md transition-shadow duration-300">
+                    {/* Sidebar: Table Selection */}
+                    <div className="lg:col-span-3 space-y-6 sticky top-24 h-fit">
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
                             <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-slate-100/50 flex items-center gap-2.5">
                                 <div className="p-1.5 bg-slate-200/70 rounded-lg">
                                     <Database size={14} className="text-slate-600" />
@@ -722,7 +811,16 @@ export default function AdminDashboard() {
                                 <h2 className="font-bold text-slate-800 text-sm">Database Tables</h2>
                             </div>
                             <div className="p-3">
-
+                                <div className="relative mb-4 group px-0.5">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                                    <input
+                                        type="text"
+                                        placeholder="Filter tables..."
+                                        value={filterTables}
+                                        onChange={(e) => setFilterTables(e.target.value)}
+                                        className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium placeholder:text-slate-400 shadow-inner h-10"
+                                    />
+                                </div>
                                 <div className="space-y-1 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
                                     {filteredTableList.map((table) => (
                                         <button
@@ -777,16 +875,19 @@ export default function AdminDashboard() {
                                     </div>
                                     <div className="flex flex-wrap items-center gap-3">
                                         {!READ_ONLY_TABLES.some(t => t.toLowerCase() === selectedTable.toLowerCase()) && (
-                                            <button
-                                                onClick={() => {
-                                                    setNewRowData({});
-                                                    setAddModalOpen(true);
-                                                }}
-                                                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-lg shadow-indigo-200/50 hover:shadow-indigo-300/50 transition-all active:scale-95 hover:from-indigo-700 hover:to-indigo-800"
-                                            >
-                                                <Plus className="h-4 w-4" />
-                                                Add Record
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingRow(null);
+                                                        setNewRowData({});
+                                                        setAddModalOpen(true);
+                                                    }}
+                                                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
+                                                >
+                                                    <Plus size={18} />
+                                                    Add Record
+                                                </button>
+                                            </div>
                                         )}
                                         <div className="h-8 w-[1px] bg-slate-300 mx-1 hidden md:block"></div>
                                         <div className="relative w-full md:w-64">
@@ -796,7 +897,7 @@ export default function AdminDashboard() {
                                                 placeholder={`Search in ${tableData?.model_name}...`}
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                                                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm"
                                             />
                                         </div>
 
@@ -914,6 +1015,18 @@ export default function AdminDashboard() {
                                                                             {numVal}
                                                                         </span>
                                                                     );
+                                                                } else if (field.toLowerCase() === 'password') {
+                                                                    content = <span className="text-slate-400 font-mono text-xs select-none">********</span>;
+                                                                } else if (field.toLowerCase() === 'branches') {
+                                                                    const branchArr = Array.isArray(value) ? value : [];
+                                                                    content = (
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {branchArr.map((b: string) => (
+                                                                                <span key={b} className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-bold border border-blue-100 uppercase">{b}</span>
+                                                                            ))}
+                                                                            {branchArr.length === 0 && <span className="text-slate-400 text-xs">—</span>}
+                                                                        </div>
+                                                                    );
                                                                 } else if (field === tableData.pk_field || field.toLowerCase().includes('code')) {
                                                                     content = <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">{String(value ?? '—')}</span>;
                                                                 } else if (field.toLowerCase().includes('id') && !isNaN(numVal)) {
@@ -930,20 +1043,23 @@ export default function AdminDashboard() {
                                                             })}
                                                             <td className="px-4 py-3 text-right sticky right-0 bg-white group-hover:bg-blue-50/40 shadow-[-12px_0_20px_-10px_rgba(0,0,0,0.05)] align-middle z-10 transition-colors duration-100">
                                                                 {!READ_ONLY_TABLES.some(t => t.toLowerCase() === selectedTable.toLowerCase()) && (
-                                                                    <div className="flex justify-end gap-1">
+                                                                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                         <button
-                                                                            onClick={() => handleEdit(row)}
+                                                                            onClick={() => {
+                                                                                setEditingRow(row);
+                                                                                setNewRowData({ ...row });
+                                                                            }}
+                                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
                                                                             title="Edit"
-                                                                            className="p-2 rounded-lg text-indigo-500 hover:bg-indigo-100 hover:text-indigo-700 transition-all active:scale-90"
                                                                         >
-                                                                            <Edit size={14} />
+                                                                            <Edit size={16} />
                                                                         </button>
                                                                         <button
                                                                             onClick={() => setDeleteConfirm(row)}
+                                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
                                                                             title="Delete"
-                                                                            className="p-2 rounded-lg text-red-400 hover:bg-red-100 hover:text-red-600 transition-all active:scale-90"
                                                                         >
-                                                                            <Trash2 size={14} />
+                                                                            <Trash2 size={16} />
                                                                         </button>
                                                                     </div>
                                                                 )}
@@ -1062,7 +1178,10 @@ export default function AdminDashboard() {
                     >
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
                             <div>
-                                <h3 className="text-xl font-black text-slate-900">Edit Record</h3>
+                                <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                                    Edit Record 
+                                    <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-tighter">v3.0.4</span>
+                                </h3>
                                 <p className="text-sm text-slate-500 font-medium">
                                     {tableData.model_name} • {formatLabel(tableData.pk_field)}: <span className="text-indigo-600 font-bold">{editingRow[tableData.pk_field]}</span>
                                 </p>
@@ -1076,16 +1195,16 @@ export default function AdminDashboard() {
                                 {tableData.fields
                                     .filter(field => !tableData.field_meta?.[field]?.is_auto)
                                     .map((field) => (
-                                        <div key={field} className="space-y-1.5">
+                                        <div key={field} className={cn("space-y-1.5", (tableData.field_meta?.[field]?.type === 'multi-select' || field === 'branches') ? "md:col-span-2" : "")}>
                                             <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider pl-1">{formatLabel(field)}</label>
-                                            {renderInput(
-                                                field,
-                                                editingRow[field],
-                                                (val) => setEditingRow({ ...editingRow, [field]: val }),
-                                                field === tableData.pk_field,
-                                                tableData,
-                                                editingRow
-                                            )}
+                                            <RenderInputInner
+                                                field={field}
+                                                value={editingRow[field]}
+                                                onChange={(val) => setEditingRow({ ...editingRow, [field]: val })}
+                                                isPk={field === tableData.pk_field}
+                                                tableData={tableData}
+                                                allData={editingRow}
+                                            />
                                         </div>
                                     ))}
                             </div>
@@ -1120,7 +1239,10 @@ export default function AdminDashboard() {
                     >
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
                             <div>
-                                <h3 className="text-xl font-black text-slate-900">Add New Record</h3>
+                                <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                                    Add New Record
+                                    <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded uppercase tracking-tighter">v3.0.4</span>
+                                </h3>
                                 <p className="text-sm text-slate-500 font-medium">Insert row into {tableData.model_name}</p>
                             </div>
                             <button onClick={() => setAddModalOpen(false)} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">
@@ -1132,16 +1254,16 @@ export default function AdminDashboard() {
                                 {tableData.fields
                                     .filter(field => !tableData.field_meta?.[field]?.is_auto)
                                     .map((field) => (
-                                        <div key={field} className="space-y-1.5">
+                                        <div key={field} className={cn("space-y-1.5", (tableData.field_meta?.[field]?.type === 'multi-select' || field === 'branches') ? "md:col-span-2" : "")}>
                                             <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider pl-1">{formatLabel(field)}</label>
-                                            {renderInput(
-                                                field,
-                                                newRowData[field],
-                                                (val) => setNewRowData({ ...newRowData, [field]: val }),
-                                                field === tableData.pk_field,
-                                                tableData,
-                                                newRowData
-                                            )}
+                                            <RenderInputInner
+                                                field={field}
+                                                value={newRowData[field]}
+                                                onChange={(val) => setNewRowData({ ...newRowData, [field]: val })}
+                                                isPk={field === tableData.pk_field}
+                                                tableData={tableData}
+                                                allData={newRowData}
+                                            />
                                         </div>
                                     ))}
                             </div>
@@ -1197,6 +1319,7 @@ export default function AdminDashboard() {
                     </motion.div>
                 </div>
             )}
+
 
             <style jsx>{`
                 .custom-scrollbar::-webkit-scrollbar {

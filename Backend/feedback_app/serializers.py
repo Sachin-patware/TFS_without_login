@@ -2,9 +2,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from django import forms
 from datetime import date
-from feedback_app.models.academic_subject import Academic_Subject
-from feedback_app.models.faculty_teacher import Faculty_Teacher
-from feedback_app.models.academic_allocation import Academic_Allocation
+from feedback_app.models import Academic_Subject, Faculty_Teacher, Academic_Allocation, StaffUser
 
 
 class LoginSerializer(forms.Form):
@@ -141,3 +139,38 @@ class AcademicAllocationSerializer(serializers.ModelSerializer):
         if not (1 <= value <= 5):
             raise serializers.ValidationError("Target section must be between 1 and 5.")
         return value
+
+class StaffUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StaffUser
+        fields = ['id', 'username', 'password', 'role', 'department', 'branches', 'is_active', 'is_first_login']
+        extra_kwargs = {
+            'password': {'write_only': True, 'required': False}
+        }
+
+    def create(self, validated_data):
+        password = validated_data.pop('password', None)
+        instance = self.Meta.model(**validated_data)
+        if password:
+            instance.set_password(password)
+        else:
+            instance.set_password('admin@123')
+        instance.save()
+        return instance
+
+    def update(self, instance, validated_data):
+        request = self.context.get('request')
+        password = validated_data.pop('password', None)
+        
+        # Security: Only admins can change roles
+        if request and hasattr(request, 'user') and request.user.role != 'admin':
+            validated_data.pop('role', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+            
+        if password and password != "********":
+            instance.set_password(password)
+            
+        instance.save()
+        return instance

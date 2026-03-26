@@ -9,19 +9,50 @@ from django.core.signing import Signer, BadSignature
 import json
 import random
 import string
-from feedback_app.serializers import LoginSerializer, FeedbackSerializer, AcademicSubjectSerializer, FacultyTeacherSerializer, AcademicAllocationSerializer
-from feedback_app.models.feedback_response import Feedback_Response
-from feedback_app.models.feedback_submissionlog import Feedback_SubmissionLog
-from feedback_app.models.academic_allocation import Academic_Allocation
-from feedback_app.models.faculty_teacher import Faculty_Teacher
+from feedback_app.serializers import LoginSerializer, FeedbackSerializer, AcademicSubjectSerializer, FacultyTeacherSerializer, AcademicAllocationSerializer, StaffUserSerializer
+from feedback_app.models import Feedback_Response, Feedback_SubmissionLog, Academic_Allocation, Faculty_Teacher
 from django.db.models import Avg, F, Count
 from functools import wraps
-from feedback_app.auth import generate_jwt, jwt_required, jwt_admin_required
+from feedback_app.auth import generate_jwt, jwt_required, jwt_admin_required, jwt_hod_or_admin_required
 
 # In-memory store for student access token (resets on server restart)
 CURRENT_ACCESS_TOKEN = "AITR0827"
 
 # LEGACY DECORATORS REMOVED (Replaced by feedback_app.auth)
+
+def apply_role_filters(user, queryset, model):
+    """
+    Apply filtering based on user role.
+    Admins see everything. HODs see only their assigned department/branches.
+    """
+    if not user or not hasattr(user, 'role') or user.role == 'admin':
+        return queryset
+
+    if user.role == 'hod':
+        model_name = model.__name__
+        
+        # HODs cannot see the User table (StaffUser)
+        if model_name == 'StaffUser':
+            return queryset.none()
+            
+        if model_name == 'Academic_Subject':
+            return queryset.filter(Branch__in=user.branches)
+        
+        elif model_name == 'Academic_Allocation':
+            return queryset.filter(TargetBranch__in=user.branches)
+            
+        elif model_name in ['Feedback_Response', 'Feedback_SubmissionLog']:
+            return queryset.filter(AllocationID__TargetBranch__in=user.branches)
+            
+        elif model_name == 'Faculty_Teacher':
+            # Teachers that are allocated to the HOD's branches
+            from .models import Academic_Allocation
+            teacher_ids = Academic_Allocation.objects.filter(
+                TargetBranch__in=user.branches
+            ).values_list('TeacherID', flat=True).distinct()
+            return queryset.filter(TeacherID__in=teacher_ids)
+            
+    return queryset
 
 # login api 
 @csrf_exempt
@@ -71,21 +102,20 @@ def login(request):
         return JsonResponse({'status': 'error', 'error': 'Invalid access token'}, status=403)
 
     # Advanced Link Security: Verify Signature if advanced params are present
-    # If any class parameter is provided, we REQUIRE a valid signature to prevent manipulation
+    # If any class parameter is provided AND a signature is present, we verify it to prevent manipulation
+    # If no signature is present, we proceed as a standard manual login (basic link)
     has_advanced_params = any([branch_raw, year_raw, semester_raw, section_raw])
     if has_advanced_params:
         sig = payload.get('sig')
-        if not sig:
-            return JsonResponse({'status': 'error', 'error': 'Security signature missing for advanced link'}, status=403)
-        
-        signer = Signer(sep=':')
-        try:
-            # Reconstruct the string that was signed: "branch|year|semester|section"
-            # Note: order and format must match the generator
-            expected_data = f"{branch_raw}|{year_raw}|{semester_raw}|{section_raw}"
-            signer.unsign(f"{expected_data}:{sig}")
-        except BadSignature:
-            return JsonResponse({'status': 'error', 'error': 'Invalid security signature. URL may have been tampered with.'}, status=403)
+        if sig:
+            signer = Signer(sep=':')
+            try:
+                # Reconstruct the string that was signed: "branch|year|semester|section"
+                # Note: order and format must match the generator
+                expected_data = f"{branch_raw}|{year_raw}|{semester_raw}|{section_raw}"
+                signer.unsign(f"{expected_data}:{sig}")
+            except BadSignature:
+                return JsonResponse({'status': 'error', 'error': 'Invalid security signature. URL may have been tampered with.'}, status=403)
 
     # validate inputs via serializer (Django Form)
     serializer = LoginSerializer(data={
@@ -141,6 +171,37 @@ def logout(request):
     response.delete_cookie('sessionid')
 
     return response
+
+@csrf_exempt
+@require_POST
+@jwt_hod_or_admin_required
+def admin_change_password(request):
+    """API for changing password, requiring old password confirmation"""
+    try:
+        user = request.user
+        payload = json.loads(request.body)
+        
+        old_password = payload.get("old_password")
+        new_password = payload.get("password")
+        
+        if not old_password or not new_password:
+            return JsonResponse({'status': 'error', 'error': 'current and new passwords are required'}, status=400)
+            
+        if len(new_password) < 6:
+            return JsonResponse({'status': 'error', 'error': 'new password must be at least 6 characters'}, status=400)
+            
+        # Verify old password
+        if not user.check_password(old_password):
+            return JsonResponse({'status': 'error', 'error': 'incorrect current password'}, status=400)
+            
+        # Set and save
+        user.set_password(new_password)
+        user.is_first_login = False
+        user.save()
+        
+        return JsonResponse({'status': 'ok', 'message': 'password updated successfully'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'error': str(e)}, status=400)
 
 
 
@@ -437,10 +498,12 @@ from django.apps import apps
 # LEGACY ADMIN DECORATOR REMOVED
 
 
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
+
 @csrf_exempt
 def admin_login(request):
-    """Admin login using credentials from .env file"""
-    # Manual POST check
+    """Admin/HOD login using database credentials"""
     if request.method != 'POST':
         return JsonResponse({"status": "error", "error": "method not allowed"}, status=405)
     
@@ -452,42 +515,63 @@ def admin_login(request):
     username = payload.get("username")
     password = payload.get("password")
     
-    # Get admin credentials from environment
-    admin_username = os.getenv("ADMIN_USERNAME", "admin")
-    admin_password = os.getenv("ADMIN_PASSWORD", "admin@123")
-    
-    if username == admin_username and password == admin_password:
-        # Generate JWT
-        token = generate_jwt({
-            'username': username
-        }, user_type='admin')
+    if not username or not password:
+        return JsonResponse({"status": "error", "error": "username and password are required"}, status=400)
 
+    # Use Django's authenticate
+    user = authenticate(username=username, password=password)
+    
+    if user is not None:
+        if not user.is_active:
+            return JsonResponse({"status": "error", "error": "account is disabled"}, status=403)
+        
+        # Check if first login
+        if user.is_first_login:
+            # We can still let them login but signal they MUST change password
+            # Or we can block and only allow Password Change API
+            pass
+
+        # Generate SimpleJWT tokens
+        refresh = RefreshToken.for_user(user)
+        
         return JsonResponse({
             'status': 'ok',
-            'message': 'admin login successful',
-            'username': username,
-            'access': token
+            'message': 'login successful',
+            'username': user.username,
+            'role': user.role,
+            'branches': user.branches if hasattr(user, 'branches') else [],
+            'is_first_login': user.is_first_login,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh)
         })
     
     return JsonResponse({"status": "error", "error": "invalid credentials"}, status=401)
 
 
 @require_GET
-@jwt_admin_required
+@jwt_hod_or_admin_required
 def admin_list_tables(request):
     """List all database tables"""
     try:
         # Get all models from the app
         models = apps.get_app_config('feedback_app').get_models()
         
+        # Filter tables for HOD role
+        user_role = getattr(request.user, 'role', 'admin')
+        
         tables = []
         for model in models:
             table_name = model._meta.db_table
             model_name = model.__name__
             
+            # HODs cannot see the User table
+            if user_role == 'hod' and model_name == 'StaffUser':
+                continue
+            
             # Get row count
             try:
-                count = model.objects.count()
+                # Apply role filtering even to the count
+                count = apply_role_filters(request.user, model.objects.all(), model).count()
             except:
                 count = 0
             
@@ -509,7 +593,7 @@ def admin_list_tables(request):
 
 
 @require_GET
-@jwt_admin_required
+@jwt_hod_or_admin_required
 def admin_get_table_data(request, table_name):
     """Get data from a specific table with optional pagination"""
     try:
@@ -526,6 +610,10 @@ def admin_get_table_data(request, table_name):
                 "error": f"table '{table_name}' not found"
             }, status=404)
         
+        # Security: Block HOD from StaffUser table
+        if request.user.role == 'hod' and model.__name__ == 'StaffUser':
+            return JsonResponse({"status": "error", "error": "Access denied to sensitive table"}, status=403)
+
         # Check for no-pagination flag
         nopaginate = request.GET.get('nopaginate', 'false').lower() == 'true'
         
@@ -536,6 +624,9 @@ def admin_get_table_data(request, table_name):
         
         # Initial queryset
         queryset = model.objects.all()
+        
+        # Apply Role Filtering
+        queryset = apply_role_filters(request.user, queryset, model)
         
         # Apply Search
         if search_term:
@@ -584,6 +675,8 @@ def admin_get_table_data(request, table_name):
         # Get field names and metadata
         fields = []
         field_meta = {}
+        model_name_lower = model.__name__.lower()
+        is_user_model = 'staffuser' in model_name_lower or 'user' in model_name_lower
         
         for f in model._meta.get_fields():
             if f.many_to_many or f.one_to_many:
@@ -620,45 +713,51 @@ def admin_get_table_data(request, table_name):
                 meta['type'] = 'select' 
                 meta['choices'] = [{'value': c[0], 'label': str(c[1])} for c in f.choices]
             
-            # --- Inject System Selectors for Common Fields ---
+            # Special multi-select for branches
+            # Type discovery based on name
             field_name_lower = f.name.lower()
             
-            # Branch Choices
-            if 'branch' in field_name_lower:
+            if field_name_lower in ['branches', 'branchs']:
+                meta['type'] = 'multi-select'
+                meta['choices'] = [{'value': b, 'label': b} for b in ['CS', 'IT', 'DS', 'AIML', 'CY', 'CSIT', 'EC', 'CIVIL', 'MECHANICAL']]
+            elif 'branch' in field_name_lower:
                 meta['type'] = 'select'
                 meta['choices'] = [{'value': b, 'label': b} for b in ['CS', 'IT', 'DS', 'AIML', 'CY', 'CSIT', 'EC', 'CIVIL', 'MECHANICAL']]
-                
-            # Semester Choices
             elif 'semester' in field_name_lower:
                 meta['type'] = 'select'
                 meta['choices'] = [{'value': i, 'label': f"Semester {i}"} for i in range(1, 9)]
-                
-            # Year Choices
             elif 'year' in field_name_lower:
                 meta['type'] = 'select'
                 meta['choices'] = [{'value': i, 'label': f"Year {i}"} for i in range(1, 5)]
-                
-            # Section Choices
             elif 'section' in field_name_lower:
                 meta['type'] = 'select'
                 meta['choices'] = [{'value': i, 'label': f"Section {i}"} for i in range(1, 6)]
             
+            # Visibility/Form overrides for user models
+            if is_user_model and f.name in ['last_login', 'is_first_login', 'is_active', 'is_superuser', 'is_staff', 'date_joined']:
+                meta['is_auto'] = True
+                meta['required'] = False
+            
             field_meta[f.name] = meta
         
         # Convert to list of dicts
-        
-        # Convert to list of dicts
         data = []
+        is_user_model = 'staffuser' in model_name_lower or 'user' in model_name_lower
+        
         for obj in queryset:
             row = {}
             for field in fields:
                 try:
+                    # Sensitive fields handling
+                    if is_user_model and field == 'password':
+                        row[field] = "********"
+                        continue
+                        
                     value = getattr(obj, field)
                     # Convert to JSON-serializable format
                     if hasattr(value, 'isoformat'):  # datetime/date
                         value = value.isoformat()
                     elif hasattr(value, 'pk'):  # Foreign key
-                        # USER REQUEST: Show raw ID instead of str(obj)
                         value = value.pk
                     row[field] = value
                 except:
@@ -690,7 +789,7 @@ def admin_get_table_data(request, table_name):
 
 @csrf_exempt
 @require_POST
-@jwt_admin_required
+@jwt_hod_or_admin_required
 def admin_add_row(request, table_name):
     """Add a new row to a table"""
     # Restricted Tables
@@ -716,12 +815,29 @@ def admin_add_row(request, table_name):
             payload = json.loads(request.body)
         except:
             return JsonResponse({"status": "error", "error": "invalid JSON"}, status=400)
+
+        # RBAC: Check branch ownership for HOD
+        if request.user.role == 'hod':
+             model_name = model.__name__
+             if model_name == 'StaffUser':
+                 return JsonResponse({"status": "error", "error": "HOD cannot add users"}, status=403)
+             
+             # Validate branch if model has one
+             branch_key = None
+             if model_name == 'Academic_Subject': branch_key = 'Branch'
+             elif model_name == 'Academic_Allocation': branch_key = 'TargetBranch'
+             
+             if branch_key:
+                 branch_val = payload.get(branch_key)
+                 if branch_val not in request.user.branches:
+                     return JsonResponse({"status": "error", "error": f"You do not have permission for branch {branch_val}"}, status=403)
             
         # Map models to serializers for better validation
         serializer_map = {
             'Academic_Subject': AcademicSubjectSerializer,
             'Faculty_Teacher': FacultyTeacherSerializer,
-            'Academic_Allocation': AcademicAllocationSerializer
+            'Academic_Allocation': AcademicAllocationSerializer,
+            'StaffUser': StaffUserSerializer
         }
         
         serializer_class = serializer_map.get(model.__name__)
@@ -789,7 +905,7 @@ def admin_add_row(request, table_name):
 
 @csrf_exempt
 @require_POST
-@jwt_admin_required
+@jwt_hod_or_admin_required
 def admin_update_row(request, table_name, row_id):
     """Update a row in a table"""
     # Restricted Tables
@@ -816,20 +932,38 @@ def admin_update_row(request, table_name, row_id):
         except:
             return JsonResponse({"status": "error", "error": "invalid JSON"}, status=400)
         
-        # Get the object
+        # RBAC: Check visibility and branch ownership
+        if request.user.role == 'hod':
+            if model.__name__ == 'StaffUser':
+                return JsonResponse({"status": "error", "error": "HOD cannot modify users"}, status=403)
+            
+            # Branch validation for update payload
+            branch_key = None
+            if model.__name__ == 'Academic_Subject': branch_key = 'Branch'
+            elif model.__name__ == 'Academic_Allocation': branch_key = 'TargetBranch'
+            
+            if branch_key:
+                branch_val = payload.get(branch_key)
+                if branch_val and branch_val not in request.user.branches:
+                    return JsonResponse({"status": "error", "error": f"You do not have permission to move data to branch {branch_val}"}, status=403)
+
+        # Get the object (applying role filters to ensure they can see it)
         try:
-            obj = model.objects.get(pk=row_id)
+            # Re-apply role filters to ensure they can't update what they can't see
+            visible_qs = apply_role_filters(request.user, model.objects.all(), model)
+            obj = visible_qs.get(pk=row_id)
         except model.DoesNotExist:
             return JsonResponse({
                 "status": "error",
-                "error": f"row with id {row_id} not found"
+                "error": f"row with id {row_id} not found or access denied"
             }, status=404)
         
         # Map models to serializers for better validation
         serializer_map = {
             'Academic_Subject': AcademicSubjectSerializer,
             'Faculty_Teacher': FacultyTeacherSerializer,
-            'Academic_Allocation': AcademicAllocationSerializer
+            'Academic_Allocation': AcademicAllocationSerializer,
+            'StaffUser': StaffUserSerializer
         }
         
         serializer_class = serializer_map.get(model.__name__)
@@ -881,7 +1015,7 @@ def admin_update_row(request, table_name, row_id):
 
 @csrf_exempt
 @require_POST
-@jwt_admin_required
+@jwt_hod_or_admin_required
 def admin_delete_row(request, table_name, row_id):
     """Delete a row from a table"""
     # Restricted Tables
@@ -904,7 +1038,9 @@ def admin_delete_row(request, table_name, row_id):
         
         # Get and delete the object
         try:
-            obj = model.objects.get(pk=row_id)
+            # Re-apply role filters to ensure they can't delete what they can't see
+            visible_qs = apply_role_filters(request.user, model.objects.all(), model)
+            obj = visible_qs.get(pk=row_id)
             obj.delete()
             
             return JsonResponse({
@@ -914,7 +1050,7 @@ def admin_delete_row(request, table_name, row_id):
         except model.DoesNotExist:
             return JsonResponse({
                 "status": "error",
-                "error": f"row with id {row_id} not found"
+                "error": f"row with id {row_id} not found or access denied"
             }, status=404)
     except Exception as e:
         return JsonResponse({
@@ -922,7 +1058,7 @@ def admin_delete_row(request, table_name, row_id):
             "error": str(e)
         }, status=500)
 @csrf_exempt
-@jwt_admin_required
+@jwt_hod_or_admin_required
 def admin_get_token(request):
     """Fetch the current global student access token"""
     return JsonResponse({
@@ -932,7 +1068,7 @@ def admin_get_token(request):
 
 @csrf_exempt
 @require_POST
-@jwt_admin_required
+@jwt_hod_or_admin_required
 def admin_update_token(request):
     """Update the global student access token"""
     global CURRENT_ACCESS_TOKEN
@@ -953,7 +1089,7 @@ def admin_update_token(request):
 
 @csrf_exempt
 @require_GET
-@jwt_admin_required
+@jwt_hod_or_admin_required
 def admin_teacher_report(request):
     """
     Categorizes teachers into 3 parts based on average rating:
@@ -962,7 +1098,13 @@ def admin_teacher_report(request):
     - Need Improvement: < 2
     """
     try:
-        results = Feedback_Response.objects.values(
+        # Base queryset for feedback responses
+        feedback_qs = Feedback_Response.objects.all()
+        
+        # Apply Role Filtering
+        feedback_qs = apply_role_filters(request.user, feedback_qs, Feedback_Response)
+        
+        results = feedback_qs.values(
             teacher_id=F('AllocationID__TeacherID__TeacherID'),
             full_name=F('AllocationID__TeacherID__FullName')
         ).annotate(
@@ -1035,7 +1177,7 @@ def admin_teacher_report(request):
         return JsonResponse({'status': 'error', 'error': str(e)}, status=500)
 @csrf_exempt
 @require_POST
-@jwt_admin_required
+@jwt_hod_or_admin_required
 def admin_generate_signature(request):
     """Generate a cryptographic signature for a class link to prevent tampering"""
     try:

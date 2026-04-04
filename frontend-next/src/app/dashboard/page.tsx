@@ -278,7 +278,7 @@ export default function DashboardPage() {
                                                 <span className="flex-shrink-0 h-6 w-6 rounded-lg bg-white border border-gray-200 text-blue-600 text-[11px] font-black flex items-center justify-center shadow-sm">
                                                     {(idx + 1).toString().padStart(2, '0')}
                                                 </span>
-                                                <p className="text-gray-700 text-[13px] font-semibold leading-snug line-clamp-2">
+                                                <p className="text-gray-700 text-[12px] font-semibold leading-snug line-clamp-5">
                                                     {q.label}
                                                 </p>
                                             </div>

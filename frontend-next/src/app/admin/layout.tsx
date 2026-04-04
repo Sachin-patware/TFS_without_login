@@ -150,7 +150,7 @@ export default function AdminLayout({
                                 </div>
                                 <div className="hidden sm:block text-left">
                                     <p className="text-sm font-bold text-slate-700 tracking-tight group-hover:text-slate-900 transition-colors">{admin?.username}</p>
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Root Authority</p>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Admin Authority</p>
                                 </div>
                                 <ChevronDown className={cn(
                                     "h-4 w-4 text-slate-400 transition-transform duration-300 group-hover:text-slate-600 hidden sm:block",
@@ -167,7 +167,7 @@ export default function AdminLayout({
                                         </div>
                                         <div>
                                             <p className="text-base font-black text-slate-900 tracking-tight">{admin?.username}</p>
-                                            <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest mt-0.5">College Admin</p>
+                                            <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest mt-0.5">Admin Authority</p>
                                         </div>
                                     </div>
 

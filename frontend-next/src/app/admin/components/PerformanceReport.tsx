@@ -6,6 +6,7 @@ import {
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts';
 import { apiFetch } from '@/lib/api';
+import { FEEDBACK_QUESTIONS } from '@/app/dashboard/feedbackQuestions';
 import {
     TrendingUp, Users, Award, AlertCircle,
     Search, Download, Filter, RefreshCw, X, ChevronRight,
@@ -22,36 +23,34 @@ interface TeacherStat {
     average_rating: number;
     response_count: number;
     category: string;
+    std_deviation?: number;
     question_stats: {
         q1: number; q2: number; q3: number; q4: number; q5: number;
         q6: number; q7: number; q8: number; q9: number; q10: number;
     };
 }
 
-const QUESTION_LABELS: Record<string, string> = {
-    q1: "Content Clarity",
-    q2: "Teaching Style",
-    q3: "Interaction",
-    q4: "Punctuality",
-    q5: "Assessment",
-    q6: "Support",
-    q7: "Resources",
-    q8: "Atmosphere",
-    q9: "Innovation",
-    q10: "Inspiration"
-};
+const QUESTION_LABELS: Record<string, string> = Object.fromEntries(
+    FEEDBACK_QUESTIONS.map((q) => [q.key, q.label])
+);
+
+const QUESTION_SHORT_LABELS: Record<string, string> = Object.fromEntries(
+    FEEDBACK_QUESTIONS.map((q) => [q.key, q.shortLabel])
+);
 
 interface Summary {
     excellent: number;
     good: number;
     needs_improvement: number;
+    insufficient_data: number;
     total_teachers: number;
 }
 
-const COLORS = {
-    Excellent: '#10b981', // green-500
-    Good: '#3b82f6',      // blue-500
-    'Need Improvement': '#ef4444' // red-500
+const COLORS: Record<string, string> = {
+    Excellent: '#10b981',
+    Good: '#3b82f6',
+    'Need Improvement': '#ef4444',
+    'Insufficient Data': '#a855f7'
 };
 
 export default function PerformanceReport() {
@@ -92,14 +91,15 @@ export default function PerformanceReport() {
     const pieData = summary ? [
         { name: 'Excellent', value: summary.excellent },
         { name: 'Good', value: summary.good },
-        { name: 'Need Improvement', value: summary.needs_improvement }
+        { name: 'Need Improvement', value: summary.needs_improvement },
+        { name: 'Insufficient Data', value: summary.insufficient_data }
     ].filter(v => v.value > 0) : [];
 
     const topPerformers = [...data].sort((a, b) => b.average_rating - a.average_rating).slice(0, 5);
 
     const getRadarData = (teacher: TeacherStat) => {
         return Object.entries(teacher.question_stats).map(([key, value]) => ({
-            subject: QUESTION_LABELS[key] || key,
+            subject: QUESTION_SHORT_LABELS[key] || key,
             A: value,
             fullMark: 5,
         }));
@@ -235,12 +235,13 @@ export default function PerformanceReport() {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {[
                     { id: 'all', label: 'Total Teachers', value: summary?.total_teachers, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50', category: null },
                     { id: 'Excellent', label: 'Excellent', value: summary?.excellent, icon: Award, color: 'text-emerald-600', bg: 'bg-emerald-50', category: 'Excellent' },
                     { id: 'Good', label: 'Good', value: summary?.good, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50', category: 'Good' },
                     { id: 'Need Improvement', label: 'Need Improvement', value: summary?.needs_improvement, icon: AlertCircle, color: 'text-rose-600', bg: 'bg-rose-50', category: 'Need Improvement' },
+                    { id: 'Insufficient Data', label: 'Insufficient Data', value: summary?.insufficient_data, icon: Clock, color: 'text-purple-600', bg: 'bg-purple-50', category: 'Insufficient Data' },
                 ].map((stat, i) => (
                     <button
                         key={i}
@@ -422,7 +423,8 @@ export default function PerformanceReport() {
                                             <span className={cn(
                                                 "text-lg font-black",
                                                 teacher.category === 'Excellent' ? "text-emerald-600" :
-                                                    teacher.category === 'Good' ? "text-blue-600" : "text-rose-600"
+                                                    teacher.category === 'Good' ? "text-blue-600" :
+                                                        teacher.category === 'Insufficient Data' ? "text-purple-600" : "text-rose-600"
                                             )}>
                                                 {teacher.average_rating}
                                             </span>
@@ -430,7 +432,8 @@ export default function PerformanceReport() {
                                                 <div
                                                     className={cn("h-full",
                                                         teacher.category === 'Excellent' ? "bg-emerald-500" :
-                                                            teacher.category === 'Good' ? "bg-blue-500" : "bg-rose-500"
+                                                            teacher.category === 'Good' ? "bg-blue-500" :
+                                                                teacher.category === 'Insufficient Data' ? "bg-purple-500" : "bg-rose-500"
                                                     )}
                                                     style={{ width: `${(teacher.average_rating / 5) * 100}%` }}
                                                 />
@@ -447,11 +450,13 @@ export default function PerformanceReport() {
                                             "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border",
                                             teacher.category === 'Excellent' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
                                                 teacher.category === 'Good' ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                                    "bg-rose-50 text-rose-700 border-rose-200"
+                                                    teacher.category === 'Insufficient Data' ? "bg-purple-50 text-purple-700 border-purple-200" :
+                                                        "bg-rose-50 text-rose-700 border-rose-200"
                                         )}>
                                             <span className={cn("w-1.5 h-1.5 rounded-full",
                                                 teacher.category === 'Excellent' ? "bg-emerald-500" :
-                                                    teacher.category === 'Good' ? "bg-blue-500" : "bg-rose-500"
+                                                    teacher.category === 'Good' ? "bg-blue-500" :
+                                                        teacher.category === 'Insufficient Data' ? "bg-purple-500" : "bg-rose-500"
                                             )} />
                                             {teacher.category}
                                         </span>
@@ -502,7 +507,8 @@ export default function PerformanceReport() {
                                         "w-24 h-24 rounded-full flex items-center justify-center text-3xl font-black mb-4 border-4",
                                         selectedTeacher.category === 'Excellent' ? "bg-emerald-100 text-emerald-600 border-emerald-200" :
                                             selectedTeacher.category === 'Good' ? "bg-blue-100 text-blue-600 border-blue-200" :
-                                                "bg-rose-100 text-rose-600 border-rose-200"
+                                                selectedTeacher.category === 'Insufficient Data' ? "bg-purple-100 text-purple-600 border-purple-200" :
+                                                    "bg-rose-100 text-rose-600 border-rose-200"
                                     )}>
                                         {selectedTeacher.full_name.charAt(0)}
                                     </div>
@@ -530,7 +536,8 @@ export default function PerformanceReport() {
                                             "p-4 rounded-2xl border font-black uppercase tracking-widest text-xs text-center",
                                             selectedTeacher.category === 'Excellent' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
                                                 selectedTeacher.category === 'Good' ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                                    "bg-rose-50 text-rose-700 border-rose-200"
+                                                    selectedTeacher.category === 'Insufficient Data' ? "bg-purple-50 text-purple-700 border-purple-200" :
+                                                        "bg-rose-50 text-rose-700 border-rose-200"
                                         )}>
                                             {selectedTeacher.category}
                                         </div>
@@ -587,16 +594,38 @@ export default function PerformanceReport() {
                                 </div>
 
                                 {/* Parameter List */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-3">
                                     {Object.entries(selectedTeacher.question_stats).map(([key, value]) => (
-                                        <div key={key} className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100 hover:border-indigo-200 hover:shadow-sm transition-all duration-200 group/card">
-                                            <span className="text-xs font-bold text-slate-600">{QUESTION_LABELS[key]}</span>
-                                            <span className={cn(
-                                                "text-sm font-black",
-                                                value >= 4 ? "text-emerald-600" : value >= 2 ? "text-blue-600" : "text-rose-600"
+                                        <div key={key} className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-100 hover:border-indigo-200 hover:shadow-sm transition-all duration-200 group/card">
+                                            {/* Score Badge */}
+                                            <div className={cn(
+                                                "flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-lg font-black border-2",
+                                                value >= 4
+                                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                    : value >= 2
+                                                        ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                        : "bg-rose-50 text-rose-600 border-rose-200"
                                             )}>
                                                 {value}
-                                            </span>
+                                            </div>
+                                            {/* Labels */}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-black text-slate-800 leading-tight">
+                                                    {QUESTION_SHORT_LABELS[key]}
+                                                </p>
+                                                <p className="text-xs text-slate-400 font-medium mt-0.5 leading-snug">
+                                                    {QUESTION_LABELS[key]}
+                                                </p>
+                                            </div>
+                                            {/* Score bar */}
+                                            <div className="flex-shrink-0 w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className={cn("h-full rounded-full transition-all",
+                                                        value >= 4 ? "bg-emerald-400" : value >= 2 ? "bg-blue-400" : "bg-rose-400"
+                                                    )}
+                                                    style={{ width: `${(value / 5) * 100}%` }}
+                                                />
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

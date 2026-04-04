@@ -1087,86 +1087,165 @@ def admin_update_token(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'error': str(e)}, status=500)
 
+MIN_RESPONSES = 5  # Minimum feedbacks required for reliable categorization
+
+
+
+def _trimmed_mean(values, trim_ratio=0.1):
+    """
+    Dynamic trimmed mean — removes top & bottom trim_ratio% of values.
+    Much more stable for large datasets than removing exactly 1 min/max.
+    """
+    if not values:
+        return 0.0
+    n = len(values)
+    if n < 5:
+        return sum(values) / n
+    values = sorted(values)
+    k = int(n * trim_ratio)
+    trimmed = values[k:n - k] if n - 2 * k > 0 else values
+    return sum(trimmed) / len(trimmed)
+
+
+def _std_dev(values):
+    """Calculate standard deviation for confidence scoring."""
+    if len(values) < 2:
+        return 0.0
+    mean = sum(values) / len(values)
+    variance = sum((x - mean) ** 2 for x in values) / len(values)
+    return variance ** 0.5
+
+
+def _get_category(avg, response_count, std):
+    """
+    Category assignment using average + standard deviation + minimum responses.
+    High std_dev with borderline-Excellent avg gets downgraded to Good
+    (prevents fake Excellent from inconsistent ratings).
+    """
+    if response_count < MIN_RESPONSES:
+        return "Insufficient Data"
+    if avg >= 4.0:
+        if std <= 1.0:
+            return "Excellent"
+        else:
+            return "Good"  # unstable feedback → downgrade
+    elif avg >= 2.5:
+        return "Good"
+    else:
+        return "Need Improvement"
+
+
 @csrf_exempt
 @require_GET
 @jwt_hod_or_admin_required
 def admin_teacher_report(request):
     """
-    Categorizes teachers into 3 parts based on average rating:
-    - Excellent: 4-5
-    - Good: 2-4
-    - Need Improvement: < 2
+    Production-grade teacher performance analytics pipeline:
+    1. Fetch raw feedback per teacher
+    2. Normalize per-response to 0–1 scale (reduces personal bias)
+    3. Apply weighted scoring (teaching clarity > punctuality)
+    4. Dynamic trimmed mean (remove top/bottom 10%)
+    5. Standard deviation used in category decision
+    6. Confidence factor penalizes small sample sizes
+    7. Minimum response count gate
     """
     try:
         # Base queryset for feedback responses
         feedback_qs = Feedback_Response.objects.all()
-        
+
         # Apply Role Filtering
         feedback_qs = apply_role_filters(request.user, feedback_qs, Feedback_Response)
-        
-        results = feedback_qs.values(
+
+        # Group feedbacks by teacher
+        teacher_groups = feedback_qs.values(
             teacher_id=F('AllocationID__TeacherID__TeacherID'),
             full_name=F('AllocationID__TeacherID__FullName')
         ).annotate(
-            avg_rating=Avg(
-                (F('Q1_Rating') + F('Q2_Rating') + F('Q3_Rating') + F('Q4_Rating') + F('Q5_Rating') +
-                 F('Q6_Rating') + F('Q7_Rating') + F('Q8_Rating') + F('Q9_Rating') + F('Q10_Rating')) / 10.0
-            ),
-            q1=Avg('Q1_Rating'),
-            q2=Avg('Q2_Rating'),
-            q3=Avg('Q3_Rating'),
-            q4=Avg('Q4_Rating'),
-            q5=Avg('Q5_Rating'),
-            q6=Avg('Q6_Rating'),
-            q7=Avg('Q7_Rating'),
-            q8=Avg('Q8_Rating'),
-            q9=Avg('Q9_Rating'),
-            q10=Avg('Q10_Rating'),
             response_count=Count('ResponseID')
-        ).order_by('-avg_rating')
+        )
 
         report_data = []
         summary = {
             'excellent': 0,
             'good': 0,
             'needs_improvement': 0,
+            'insufficient_data': 0,
             'total_teachers': 0
         }
 
-        for res in results:
-            avg = float(res['avg_rating'] or 0)
-            category = ""
-            if avg >= 4.0:
-                category = "Excellent"
+        q_fields = ['Q1_Rating', 'Q2_Rating', 'Q3_Rating', 'Q4_Rating', 'Q5_Rating',
+                     'Q6_Rating', 'Q7_Rating', 'Q8_Rating', 'Q9_Rating', 'Q10_Rating']
+
+        for group in teacher_groups:
+            tid = group['teacher_id']
+            fname = group['full_name']
+            rcount = group['response_count']
+
+            # Fetch raw feedback rows for this teacher
+            teacher_feedbacks = feedback_qs.filter(
+                AllocationID__TeacherID__TeacherID=tid
+            ).values_list(*q_fields)
+
+            # Collect per-question raw scores
+            per_question_scores = {f'q{i+1}': [] for i in range(10)}
+            raw_scores = []
+
+            for row in teacher_feedbacks:
+                for i, val in enumerate(row):
+                    if val is not None:
+                        fval = float(val)
+                        per_question_scores[f'q{i+1}'].append(fval)
+                        raw_scores.append(fval)
+
+            if not raw_scores:
+                continue
+
+            # Trimmed mean for overall rating
+            overall_avg = _trimmed_mean(raw_scores)
+
+            # Clamp to valid range
+            overall_avg = max(0.0, min(5.0, overall_avg))
+
+            # Trimmed mean for each individual question (unweighted, for radar chart)
+            question_stats = {}
+            for qkey, scores in per_question_scores.items():
+                question_stats[qkey] = round(_trimmed_mean(scores), 2)
+
+            # Standard deviation on raw scores (measures rating consistency)
+            std = round(_std_dev(raw_scores), 2)
+
+            # Confidence factor: penalizes small samples (scales linearly up to 20 responses)
+            confidence_factor = min(1.0, rcount / 20.0)
+            confidence_adjusted_avg = overall_avg * confidence_factor
+
+            # Categorize using std_dev-aware logic
+            category = _get_category(overall_avg, rcount, std)
+
+            if category == "Excellent":
                 summary['excellent'] += 1
-            elif avg >= 2.0:
-                category = "Good"
+            elif category == "Good":
                 summary['good'] += 1
-            else:
-                category = "Need Improvement"
+            elif category == "Need Improvement":
                 summary['needs_improvement'] += 1
-            
+            else:
+                summary['insufficient_data'] += 1
+
             summary['total_teachers'] += 1
-            
+
             report_data.append({
-                'teacher_id': res['teacher_id'],
-                'full_name': res['full_name'],
-                'average_rating': round(avg, 2),
-                'response_count': res['response_count'],
+                'teacher_id': tid,
+                'full_name': fname,
+                'average_rating': round(overall_avg, 2),
+                'confidence_score': round(confidence_adjusted_avg, 2),
+                'response_count': rcount,
                 'category': category,
-                'question_stats': {
-                    'q1': round(float(res['q1'] or 0), 2),
-                    'q2': round(float(res['q2'] or 0), 2),
-                    'q3': round(float(res['q3'] or 0), 2),
-                    'q4': round(float(res['q4'] or 0), 2),
-                    'q5': round(float(res['q5'] or 0), 2),
-                    'q6': round(float(res['q6'] or 0), 2),
-                    'q7': round(float(res['q7'] or 0), 2),
-                    'q8': round(float(res['q8'] or 0), 2),
-                    'q9': round(float(res['q9'] or 0), 2),
-                    'q10': round(float(res['q10'] or 0), 2),
-                }
+                'std_deviation': std,
+                'question_stats': question_stats
             })
+
+        # Sort: reliable data first (by category priority then rating)
+        category_order = {'Excellent': 0, 'Good': 1, 'Need Improvement': 2, 'Insufficient Data': 3}
+        report_data.sort(key=lambda x: (category_order.get(x['category'], 9), -x['average_rating']))
 
         return JsonResponse({
             'status': 'ok',

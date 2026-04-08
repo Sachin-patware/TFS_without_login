@@ -379,7 +379,7 @@ export default function DashboardPage() {
                                                                                     "transition-all duration-200 focus:outline-none active:scale-75",
                                                                                     currentVal >= star
                                                                                         ? "text-amber-400"
-                                                                                        : "text-slate-200 hover:text-amber-200"
+                                                                                        : "text-gray-600 hover:text-amber-300"
                                                                                 )}
                                                                             >
                                                                                 <Star

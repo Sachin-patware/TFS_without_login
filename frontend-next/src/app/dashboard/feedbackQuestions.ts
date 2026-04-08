@@ -44,7 +44,7 @@ export const FEEDBACK_QUESTIONS: FeedbackQuestion[] = [
     },
     {
         key: 'q7',
-        label: 'Shares study material, lesson plan, reference material through LMS/other different sources',
+        label: 'Shares study material, lesson plan, reference material through LMS/different sources',
         shortLabel: 'Study Material',
         category: 'Lecture'
     },
